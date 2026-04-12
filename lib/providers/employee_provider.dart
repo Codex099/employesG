@@ -7,6 +7,10 @@ class EmployeeProvider with ChangeNotifier {
   List<Employee> _employees = [];
   List<Employee> get allEmployees => _employees;
   String _searchQuery = '';
+  
+  final Set<String> _selectedRegs = {};
+  Set<String> get selectedRegs => _selectedRegs;
+  bool get isSelectionMode => _selectedRegs.isNotEmpty;
 
   List<Employee> get employees {
     if (_searchQuery.isEmpty) return _employees;
@@ -59,6 +63,20 @@ class EmployeeProvider with ChangeNotifier {
       await _employeeBox.add(emp);
     }
     _employees = employees;
+    notifyListeners();
+  }
+
+  void toggleSelection(String reg) {
+    if (_selectedRegs.contains(reg)) {
+      _selectedRegs.remove(reg);
+    } else {
+      _selectedRegs.add(reg);
+    }
+    notifyListeners();
+  }
+
+  void clearSelection() {
+    _selectedRegs.clear();
     notifyListeners();
   }
 }

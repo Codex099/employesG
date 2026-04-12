@@ -41,6 +41,10 @@ dependencies:
   file_picker: ^10.3.10
   url_launcher: ^6.2.2
   intl: ^0.20.2
+  google_fonts: ^8.0.2
+  flutter_local_notifications: ^17.1.2
+  timezone: ^0.9.4
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:
@@ -96,3 +100,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
