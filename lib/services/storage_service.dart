@@ -56,4 +56,16 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_keyThemeMode) ?? false;
   }
+
+  // --- Generic Bool ---
+
+  Future<void> saveBool(String key, bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(key, value);
+  }
+
+  Future<bool> loadBool(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(key) ?? false;
+  }
 }

@@ -9,6 +9,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
 import 'dart:io';
+import 'package:path_provider/path_provider.dart';
 import '../models/absence.dart';
 
 class SyncService extends ChangeNotifier {
@@ -56,6 +57,7 @@ class SyncService extends ChangeNotifier {
     // 1. Load local data and theme immediately
     _employees = await _storage.loadEmployees();
     _isDarkMode = await _storage.loadThemeMode();
+    _isOfflineManual = await _storage.loadBool('offline_manual');
     notifyListeners();
 
     // 2. Monitor connectivity
@@ -78,13 +80,17 @@ class SyncService extends ChangeNotifier {
   void _startPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
-      if (_isOnline && !_isSyncing) {
+      if (_isOnline && !_isSyncing && !_isOfflineManual) {
         await fetchFromSheets();
       }
     });
   }
 
   Future<void> fetchFromSheets() async {
+    // Prevent overwriting local changes if we haven't synced them yet
+    final queue = await _storage.getSyncQueue();
+    if (queue.isNotEmpty) return;
+
     _isSyncing = true;
     notifyListeners();
 
@@ -107,7 +113,7 @@ class SyncService extends ChangeNotifier {
     await _storage.saveEmployees(_employees);
     notifyListeners();
 
-    if (_isOnline) {
+    if (_isOnline && !_isOfflineManual) {
       final success = await _sheets.addEmployee(employee);
       if (!success) {
         await _storage.addToSyncQueue({'action': 'add', 'data': employee.toMap()});
@@ -124,9 +130,7 @@ class SyncService extends ChangeNotifier {
       await _storage.saveEmployees(_employees);
       notifyListeners();
 
-      // For Sheets, update is often just 'add' (which overwrites if key exists in script)
-      // or we sync all. Let's use sync_all for updates for simplicity/consistency.
-      if (_isOnline) {
+      if (_isOnline && !_isOfflineManual) {
         await _sheets.syncAll(_employees);
       } else {
         await _storage.addToSyncQueue({'action': 'sync_all'});
@@ -139,7 +143,7 @@ class SyncService extends ChangeNotifier {
     await _storage.saveEmployees(_employees);
     notifyListeners();
 
-    if (_isOnline) {
+    if (_isOnline && !_isOfflineManual) {
       final success = await _sheets.deleteEmployee(reg);
       if (!success) {
         await _storage.addToSyncQueue({'action': 'delete', 'reg': reg});
@@ -196,6 +200,10 @@ class SyncService extends ChangeNotifier {
 
   void toggleOfflineMode() {
     _isOfflineManual = !_isOfflineManual;
+    _storage.saveBool('offline_manual', _isOfflineManual);
+    if (!_isOfflineManual && _isOnline) {
+      _syncPendingActions();
+    }
     notifyListeners();
   }
 
@@ -274,11 +282,14 @@ class SyncService extends ChangeNotifier {
 
   Future<void> exportData() async {
     final jsonStr = json.encode(_employees.map((e) => e.toMap()).toList());
-    await SharePlus.instance.share(ShareParams(text: jsonStr, subject: 'نسخة احتياطية للعمال'));
+    final dir = await getTemporaryDirectory();
+    final file = File('${dir.path}/my_slaves_backup.json');
+    await file.writeAsString(jsonStr);
+    await Share.shareXFiles([XFile(file.path)], text: 'نسخة احتياطية للعمال (ملف JSON)');
   }
 
   Future<void> importData() async {
-    FilePickerResult? result = await FilePicker.pickFiles(
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
@@ -294,6 +305,8 @@ class SyncService extends ChangeNotifier {
         
         if (_isOnline && !_isOfflineManual) {
           await _sheets.syncAll(_employees);
+        } else {
+          await _storage.addToSyncQueue({'action': 'sync_all'});
         }
       } catch (e) {
         debugPrint('Error importing data: $e');

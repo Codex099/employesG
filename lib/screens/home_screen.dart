@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/sync_service.dart';
+import '../models/employee.dart';
+import '../models/absence.dart';
 import '../widgets/stats_bar.dart';
 import '../widgets/employee_card.dart';
 import 'employee_form_screen.dart';
 import 'absence_screens.dart';
-import '../models/absence.dart';
-import '../models/employee.dart';
 import 'package:intl/intl.dart' as intl;
 
 class HomeScreen extends StatefulWidget {
@@ -19,21 +19,21 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
+        key: _scaffoldKey,
         drawer: _buildDrawer(context),
         body: Column(
           children: [
             _buildHeader(context),
             const StatsBar(),
             _buildSearchBox(),
-            Expanded(
-              child: _buildEmployeeList(),
-            ),
+            Expanded(child: _buildEmployeeList()),
           ],
         ),
         floatingActionButton: FloatingActionButton(
@@ -46,168 +46,322 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    final syncService = Provider.of<SyncService>(context);
-    
-    return Container(
-      padding: EdgeInsets.only(
-        top: MediaQuery.of(context).padding.top + 10,
-        bottom: 40,
-        left: 20,
-        right: 20,
-      ),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topRight,
-          end: Alignment.bottomLeft,
-          colors: [Color(0xFF2563eb), Color(0xFF0ea5e9)],
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.menu, color: Colors.white),
-            onPressed: () => Scaffold.of(context).openDrawer(),
+    return Consumer<SyncService>(
+      builder: (context, syncService, _) {
+        final isOnline = syncService.isOnline && !syncService.isOfflineManual;
+        return Container(
+          padding: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + 10,
+            bottom: 40,
+            left: 16,
+            right: 16,
           ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'نظام إدارة العمال',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: (syncService.isOnline && !syncService.isOfflineManual) ? Colors.greenAccent : Colors.redAccent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      (syncService.isOnline && !syncService.isOfflineManual) ? 'متصل' : (syncService.isOfflineManual ? 'وضع يدوي' : 'غير متصل'),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                      ),
-                    ),
-                    if (syncService.isSyncing) ...[
-                      const SizedBox(width: 10),
-                      const SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      ),
-                    ]
-                  ],
-                ),
-              ],
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
+              colors: [Color(0xFF2563eb), Color(0xFF0ea5e9)],
             ),
           ),
-          Row(
+          child: Row(
             children: [
-              const Text('أونلاين', style: TextStyle(color: Colors.white, fontSize: 10)),
-              Switch(
-                value: !syncService.isOfflineManual,
-                onChanged: (_) => syncService.toggleOfflineMode(),
-                activeColor: Colors.white,
-                activeTrackColor: Colors.greenAccent.withOpacity(0.5),
-              ),
-              IconButton(
-                icon: Icon(
-                  syncService.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                  color: Colors.white,
+              // Menu button
+              GestureDetector(
+                onTap: () => _scaffoldKey.currentState?.openDrawer(),
+                child: Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text('☰', style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
-                onPressed: () => syncService.toggleTheme(),
+              ),
+              const SizedBox(width: 12),
+              // Title
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'إدارة العمال',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                    ),
+                    Row(
+                      children: [
+                        Container(
+                          width: 7, height: 7,
+                          decoration: BoxDecoration(
+                            color: isOnline ? Colors.greenAccent : Colors.redAccent,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          syncService.isOfflineManual ? 'وضع يدوي' : (syncService.isOnline ? 'متصل' : 'غير متصل'),
+                          style: const TextStyle(color: Colors.white70, fontSize: 11),
+                        ),
+                        if (syncService.isSyncing) ...[
+                          const SizedBox(width: 8),
+                          const SizedBox(width: 10, height: 10,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Online/Offline toggle
+              Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => syncService.toggleOfflineMode(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isOnline
+                            ? Colors.greenAccent.withValues(alpha: 0.25)
+                            : Colors.red.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white38),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isOnline ? Icons.wifi : Icons.wifi_off,
+                            color: Colors.white,
+                            size: 14,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isOnline ? 'أونلاين' : 'أوفلاين',
+                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: Icon(
+                      syncService.isDarkMode ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                      color: Colors.white, size: 20,
+                    ),
+                    onPressed: () => syncService.toggleTheme(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
+                ],
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildDrawer(BuildContext context) {
-    final syncService = Provider.of<SyncService>(context);
-    
-    return Drawer(
-      child: Column(
-        children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF2563eb), Color(0xFF0ea5e9)],
-              ),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text('📋 القائمة', style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
-                  Text('نظام متابعة القوى العاملة', style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14)),
-                ],
-              ),
-            ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.person_add_alt_1_outlined, color: Color(0xFF2563eb)),
-            title: const Text('إضافة عاملة جديدة'),
-            onTap: () {
-              Navigator.pop(context);
-              _openForm(context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.calendar_month_outlined, color: Colors.orange),
-            title: const Text('قائمة الغيابات'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const AbsenceListScreen()));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.archive_outlined, color: Colors.blueGrey),
-            title: const Text('الأرشيف'),
-            onTap: () {
-              Navigator.pop(context);
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ArchiveScreen()));
-            },
-          ),
-          const Divider(),
-          ExpansionTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('الإعدادات'),
+    return Consumer<SyncService>(
+      builder: (context, syncService, _) {
+        return Drawer(
+          child: Column(
             children: [
-              ListTile(
-                leading: Icon(syncService.isDarkMode ? Icons.light_mode : Icons.dark_mode),
-                title: Text(syncService.isDarkMode ? 'الوضع النهاري' : 'الوضع الليلي'),
-                onTap: () => syncService.toggleTheme(),
+              // Header like HTML sidebar
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top + 28,
+                  bottom: 20, left: 20, right: 20,
+                ),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF2563eb), Color(0xFF0ea5e9)],
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('📋 القائمة',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+                    const SizedBox(height: 3),
+                    Text('نظام متابعة القوى العاملة',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 12)),
+                  ],
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.file_upload_outlined),
-                title: const Text('تصدير البيانات (JSON)'),
-                onTap: () => syncService.exportData(),
-              ),
-              ListTile(
-                leading: const Icon(Icons.file_download_outlined),
-                title: const Text('استيراد البيانات (JSON)'),
-                onTap: () => syncService.importData(),
+
+              // Body
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.all(12),
+                  children: [
+                    // ➕ إضافة عاملة جديدة
+                    _sidebarBtn(
+                      icon: '➕',
+                      label: 'إضافة عاملة جديدة',
+                      onTap: () {
+                        Navigator.pop(context);
+                        _openForm(context);
+                      },
+                    ),
+                    const SizedBox(height: 6),
+
+                    // 📅 قائمة الغيابات
+                    _sidebarBtn(
+                      icon: '📅',
+                      label: 'قائمة الغيابات',
+                      badge: syncService.employees.where((e) => e.absence != null).length,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => const AbsenceListScreen()));
+                      },
+                    ),
+                    const SizedBox(height: 6),
+
+                    // 🗃️ الأرشيف
+                    _sidebarBtn(
+                      icon: '🗃️',
+                      label: 'الأرشيف',
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => const ArchiveScreen()));
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    Divider(color: Colors.grey.withValues(alpha: 0.2), thickness: 1),
+                    const SizedBox(height: 6),
+
+                    // ⚙️ الإعدادات (expandable)
+                    _SidebarExpandable(
+                      icon: '⚙️',
+                      label: 'الإعدادات',
+                      children: [
+                        // وضع ليلي
+                        _settingsBtn(
+                          icon: syncService.isDarkMode ? '☀️' : '🌙',
+                          label: syncService.isDarkMode ? 'الوضع النهاري' : 'الوضع الليلي',
+                          trailing: _buildToggle(syncService.isDarkMode),
+                          onTap: () => syncService.toggleTheme(),
+                        ),
+                        // تصدير
+                        _settingsBtn(
+                          icon: '📥',
+                          label: 'تصدير البيانات',
+                          onTap: () {
+                            Navigator.pop(context);
+                            syncService.exportData();
+                          },
+                        ),
+                        // استيراد
+                        _settingsBtn(
+                          icon: '📤',
+                          label: 'استيراد البيانات',
+                          onTap: () {
+                            Navigator.pop(context);
+                            syncService.importData();
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ],
+        );
+      },
+    );
+  }
+
+  Widget _sidebarBtn({required String icon, required String label, required VoidCallback onTap, int badge = 0}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withValues(alpha: 0.05)
+                : const Color(0xFFf0f4ff),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Text(icon, style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(label,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              ),
+              if (badge > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFea580c),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text('$badge',
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _settingsBtn({required String icon, required String label, VoidCallback? onTap, Widget? trailing}) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          margin: const EdgeInsets.only(bottom: 6),
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withValues(alpha: 0.05)
+                : const Color(0xFFf0f4ff),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Text(icon, style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 10),
+              Expanded(child: Text(label,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700))),
+              if (trailing != null) trailing,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggle(bool isOn) {
+    return Container(
+      width: 44, height: 24,
+      decoration: BoxDecoration(
+        color: isOn ? const Color(0xFF2563eb) : Colors.grey[300],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: AnimatedAlign(
+        duration: const Duration(milliseconds: 250),
+        alignment: isOn ? Alignment.centerLeft : Alignment.centerRight,
+        child: Container(
+          width: 18, height: 18,
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+        ),
       ),
     );
   }
@@ -219,27 +373,18 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 2))],
         ),
         child: TextField(
           controller: _searchController,
-          onChanged: (value) => setState(() => _searchQuery = value),
+          onChanged: (v) => setState(() => _searchQuery = v),
           decoration: InputDecoration(
             hintText: 'ابحث بالاسم أو رقم التسجيل...',
             prefixIcon: const Icon(Icons.search, color: Colors.grey),
-            suffixIcon: _searchQuery.isNotEmpty 
+            suffixIcon: _searchQuery.isNotEmpty
                 ? IconButton(
                     icon: const Icon(Icons.clear, color: Colors.grey),
-                    onPressed: () {
-                      _searchController.clear();
-                      setState(() => _searchQuery = '');
-                    },
+                    onPressed: () { _searchController.clear(); setState(() => _searchQuery = ''); },
                   )
                 : null,
             border: InputBorder.none,
@@ -252,18 +397,18 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildEmployeeList() {
     return Consumer<SyncService>(
-      builder: (context, syncService, child) {
-        final filteredEmployees = syncService.employees.where((e) {
-          final query = _searchQuery.toLowerCase();
-          return e.name.toLowerCase().contains(query) || e.reg.contains(query);
+      builder: (context, syncService, _) {
+        final filtered = syncService.employees.where((e) {
+          final q = _searchQuery.toLowerCase();
+          return e.name.toLowerCase().contains(q) || e.reg.contains(q);
         }).toList();
 
-        if (filteredEmployees.isEmpty) {
+        if (filtered.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.person_off_outlined, size: 80, color: Colors.grey.withOpacity(0.3)),
+                Icon(Icons.person_off_outlined, size: 80, color: Colors.grey.withValues(alpha: 0.3)),
                 const SizedBox(height: 16),
                 const Text('لا يوجد عمال مطابقين', style: TextStyle(color: Colors.grey)),
               ],
@@ -273,9 +418,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          itemCount: filteredEmployees.length,
+          itemCount: filtered.length,
           itemBuilder: (context, index) {
-            final employee = filteredEmployees[index];
+            final employee = filtered[index];
             return EmployeeCard(
               employee: employee,
               onEdit: () => _openForm(context, employee: employee),
@@ -288,28 +433,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _openForm(BuildContext context, {dynamic employee}) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => EmployeeFormScreen(employee: employee),
-      ),
-    );
+  void _openForm(BuildContext context, {Employee? employee}) {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => EmployeeFormScreen(employee: employee),
+    ));
   }
 
-  void _confirmDelete(BuildContext context, dynamic employee) {
+  void _confirmDelete(BuildContext context, Employee employee) {
     showDialog(
       context: context,
-      builder: (context) => Directionality(
+      builder: (_) => Directionality(
         textDirection: TextDirection.rtl,
         child: AlertDialog(
           title: const Text('تأكيد الحذف'),
           content: Text('هل أنت متأكد من حذف ${employee.name}؟'),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('إلغاء'),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
             TextButton(
               onPressed: () {
                 Provider.of<SyncService>(context, listen: false).deleteEmployee(employee.reg);
@@ -326,81 +465,127 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
   void _showAbsenceDialog(BuildContext context, Employee employee) {
     String selectedType = 'غ غ ش';
     int days = 1;
     DateTime startDate = DateTime.now();
+    final reasonController = TextEditingController();
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) {
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setModal) {
           final returnDate = startDate.add(Duration(days: days));
-          final formattedReturnDate = intl.DateFormat('yyyy/MM/dd', 'ar').format(returnDate);
+          final formattedReturn = intl.DateFormat('yyyy/MM/dd').format(returnDate);
 
           return Directionality(
             textDirection: TextDirection.rtl,
-            child: Container(
+            child: Padding(
               padding: EdgeInsets.only(
-                left: 20, right: 20, bottom: MediaQuery.of(context).viewInsets.bottom + 40, top: 10,
+                left: 20, right: 20,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 40,
+                top: 10,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
-                  const SizedBox(height: 20),
-                  Text('📅 تسجيل غياب -- ${employee.name}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2563eb))),
-                  const SizedBox(height: 20),
+                  Center(child: Container(width: 40, height: 4,
+                    decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)))),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      const Text('📅', style: TextStyle(fontSize: 20)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('تسجيل غياب', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(employee.name,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2563eb))),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
                   const Text('نوع الغياب', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
                   const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
+                  GridView.count(
+                    crossAxisCount: 2, shrinkWrap: true,
+                    mainAxisSpacing: 10, crossAxisSpacing: 10,
+                    childAspectRatio: 2.8,
+                    physics: const NeverScrollableScrollPhysics(),
                     children: ['غ غ ش', 'عطلة سنوية', 'مرض', 'أخرى'].map((type) {
-                      final isSelected = selectedType == type;
-                      return ChoiceChip(
-                        label: Text(type),
-                        selected: isSelected,
-                        onSelected: (val) { if (val) setModalState(() => selectedType = type); },
-                        selectedColor: const Color(0xFFfff7ed),
-                        labelStyle: TextStyle(color: isSelected ? const Color(0xFFea580c) : Colors.black, fontWeight: FontWeight.bold),
-                        side: BorderSide(color: isSelected ? const Color(0xFFea580c) : Colors.grey[300]!),
+                      final sel = selectedType == type;
+                      return GestureDetector(
+                        onTap: () => setModal(() => selectedType = type),
+                        child: Container(
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: sel ? const Color(0xFFfff7ed) : Theme.of(context).cardColor,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: sel ? const Color(0xFFea580c) : Colors.grey[300]!),
+                          ),
+                          child: Text(type, style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: sel ? const Color(0xFFea580c) : null,
+                          )),
+                        ),
                       );
                     }).toList(),
                   ),
                   if (selectedType != 'غ غ ش') ...[
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 18),
                     Row(
                       children: [
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('عدد الأيام', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                              const SizedBox(height: 10),
-                              Row(
-                                children: [
-                                  IconButton(onPressed: () => setModalState(() => days = days > 1 ? days - 1 : 1), icon: const Icon(Icons.remove_circle_outline)),
-                                  Text('$days', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                  IconButton(onPressed: () => setModalState(() => days++), icon: const Icon(Icons.add_circle_outline)),
-                                ],
+                              const Text('عدد الأيام', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                              const SizedBox(height: 8),
+                              Container(
+                                decoration: BoxDecoration(
+                                  border: Border.all(color: Colors.grey[300]!),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Row(
+                                  children: [
+                                    IconButton(icon: const Icon(Icons.remove), onPressed: () => setModal(() => days = days > 1 ? days - 1 : 1)),
+                                    Expanded(child: Text('$days', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                                    IconButton(icon: const Icon(Icons.add), onPressed: () => setModal(() => days++)),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
                         ),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('تاريخ البدء', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                              TextButton(
-                                onPressed: () async {
-                                  final picked = await showDatePicker(context: context, initialDate: startDate, firstDate: DateTime(2000), lastDate: DateTime(2100));
-                                  if (picked != null) setModalState(() => startDate = picked);
+                              const Text('تاريخ البدء', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                              const SizedBox(height: 8),
+                              GestureDetector(
+                                onTap: () async {
+                                  final picked = await showDatePicker(context: ctx, initialDate: startDate, firstDate: DateTime(2000), lastDate: DateTime(2100));
+                                  if (picked != null) setModal(() => startDate = picked);
                                 },
-                                child: Text(intl.DateFormat('yyyy/MM/dd').format(startDate)),
+                                child: Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey[300]!),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Text(intl.DateFormat('yyyy/MM/dd').format(startDate),
+                                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                                ),
                               ),
                             ],
                           ),
@@ -410,20 +595,48 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                      decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
                       child: Row(
                         children: [
-                          const Icon(Icons.info_outline, color: Colors.green, size: 18),
+                          const Icon(Icons.info_outline, color: Colors.green, size: 16),
                           const SizedBox(width: 8),
-                          Text('تاريخ الالتحاق: $formattedReturnDate', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                          Text('تاريخ الالتحاق: $formattedReturn',
+                            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.warning_amber_outlined, color: Colors.red, size: 16),
+                          SizedBox(width: 8),
+                          Text('غياب بدون إذن — سيسجل فوراً', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
                         ],
                       ),
                     ),
                   ],
-                  const SizedBox(height: 30),
+                  // --- Reason field ---
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 2,
+                    decoration: InputDecoration(
+                      hintText: 'السبب أو ملاحظة (اختياري)...',
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      prefixIcon: const Icon(Icons.note_outlined, color: Colors.grey),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey[300]!)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey[300]!)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF2563eb))),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   SizedBox(
-                    width: double.infinity,
-                    height: 50,
+                    width: double.infinity, height: 50,
                     child: ElevatedButton(
                       onPressed: () {
                         final absence = Absence(
@@ -431,13 +644,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           date: intl.DateFormat('yyyy/MM/dd').format(DateTime.now()),
                           startDate: selectedType == 'غ غ ش' ? null : intl.DateFormat('yyyy/MM/dd').format(startDate),
                           days: selectedType == 'غ غ ش' ? null : days,
-                          returnDate: selectedType == 'غ غ ش' ? null : formattedReturnDate,
+                          returnDate: selectedType == 'غ غ ش' ? null : formattedReturn,
+                          reason: reasonController.text.trim().isEmpty ? null : reasonController.text.trim(),
                         );
                         Provider.of<SyncService>(context, listen: false).addAbsence(employee.reg, absence);
-                        Navigator.pop(context);
+                        Navigator.pop(ctx);
                       },
-                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2563eb), foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                      child: const Text('تسجيل الغياب', style: TextStyle(fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2563eb),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                      child: const Text('✔ تسجيل الغياب', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                   ),
                 ],
@@ -446,6 +664,67 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+// Sidebar expandable widget
+class _SidebarExpandable extends StatefulWidget {
+  final String icon;
+  final String label;
+  final List<Widget> children;
+  const _SidebarExpandable({required this.icon, required this.label, required this.children});
+
+  @override
+  State<_SidebarExpandable> createState() => _SidebarExpandableState();
+}
+
+class _SidebarExpandableState extends State<_SidebarExpandable> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () => setState(() => _open = !_open),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white.withValues(alpha: 0.05)
+                    : const Color(0xFFf0f4ff),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Text(widget.icon, style: const TextStyle(fontSize: 22)),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text(widget.label,
+                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700))),
+                  AnimatedRotation(
+                    turns: _open ? 0.25 : 0,
+                    duration: const Duration(milliseconds: 250),
+                    child: const Icon(Icons.chevron_left, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        AnimatedCrossFade(
+          firstChild: const SizedBox.shrink(),
+          secondChild: Padding(
+            padding: const EdgeInsets.only(top: 6, right: 8),
+            child: Column(children: widget.children),
+          ),
+          crossFadeState: _open ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          duration: const Duration(milliseconds: 250),
+        ),
+      ],
     );
   }
 }

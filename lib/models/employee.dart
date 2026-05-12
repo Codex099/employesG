@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'absence.dart';
 
+
 class Employee {
   final String name;       // nom complet
   final String reg;        // matricule (identifiant unique)
@@ -72,8 +73,8 @@ class Employee {
       'children': children,
       'notes': notes,
       'created': created,
-      'absence': absence?.toMap(),
-      'archivedAbsences': archivedAbsences.map((x) => x.toMap()).toList(),
+      'absence': absence != null ? jsonEncode(absence!.toMap()) : '',
+      'archivedAbsences': jsonEncode(archivedAbsences.map((x) => x.toMap()).toList()),
     };
   }
 
@@ -92,10 +93,29 @@ class Employee {
       children: map['children'] != null ? int.tryParse(map['children'].toString()) : null,
       notes: asString(map['notes']),
       created: map['created'] is int ? map['created'] : (int.tryParse(map['created'].toString()) ?? DateTime.now().millisecondsSinceEpoch),
-      absence: map['absence'] != null ? Absence.fromMap(map['absence']) : null,
-      archivedAbsences: map['archivedAbsences'] != null 
-          ? List<Absence>.from(map['archivedAbsences']?.map((x) => Absence.fromMap(x)))
-          : const [],
+      absence: () {
+        final abs = map['absence'];
+        if (abs == null || abs == '') return null;
+        if (abs is String) {
+          try { return Absence.fromMap(jsonDecode(abs)); } catch(_) { return null; }
+        }
+        if (abs is Map<String, dynamic>) return Absence.fromMap(abs);
+        return null;
+      }(),
+      archivedAbsences: () {
+        final arch = map['archivedAbsences'];
+        if (arch == null || arch == '') return const <Absence>[];
+        if (arch is String) {
+          try {
+            final List<dynamic> decoded = jsonDecode(arch);
+            return decoded.map((x) => Absence.fromMap(x)).toList();
+          } catch(_) { return const <Absence>[]; }
+        }
+        if (arch is List) {
+          return arch.map((x) => Absence.fromMap(x)).toList();
+        }
+        return const <Absence>[];
+      }(),
     );
   }
 

@@ -6,6 +6,7 @@ class Absence {
   final String? startDate;
   final int? days;
   final String? returnDate;
+  final String? reason;
 
   Absence({
     required this.type,
@@ -13,6 +14,7 @@ class Absence {
     this.startDate,
     this.days,
     this.returnDate,
+    this.reason,
   });
 
   Map<String, dynamic> toMap() {
@@ -22,6 +24,7 @@ class Absence {
       'startDate': startDate,
       'days': days,
       'returnDate': returnDate,
+      'reason': reason,
     };
   }
 
@@ -32,6 +35,7 @@ class Absence {
       startDate: map['startDate'],
       days: map['days']?.toInt(),
       returnDate: map['returnDate'],
+      reason: map['reason'],
     );
   }
 
