@@ -153,6 +153,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
+                    onPressed: (syncService.isSyncing || syncService.isOfflineManual) 
+                        ? null 
+                        : () => syncService.fetchFromSheets(),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                  ),
                 ],
               ),
             ],

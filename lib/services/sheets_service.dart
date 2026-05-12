@@ -6,7 +6,7 @@ class SheetsService {
   // TODO: The user must provide their SCRIPT_URL
   static const String scriptUrl = 'https://script.google.com/macros/s/AKfycbz4_oNLi4lv-_OaBP5te3-QUY05aCCKyA0SkJtIUteJWx25xK0cfYy07Z4J_yTHyBU/exec';
 
-  Future<List<Employee>> fetchAll() async {
+  Future<List<Employee>?> fetchAll() async {
     try {
       final response = await http.get(Uri.parse(scriptUrl));
       if (response.statusCode == 200) {
@@ -16,7 +16,7 @@ class SheetsService {
     } catch (e) {
       print('Error fetching from Sheets: $e');
     }
-    return [];
+    return null;
   }
 
   Future<bool> addEmployee(Employee employee) async {

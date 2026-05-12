@@ -95,7 +95,7 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
 
     final remoteEmployees = await _sheets.fetchAll();
-    if (remoteEmployees.isNotEmpty) {
+    if (remoteEmployees != null) {
       // Simple strategy: remote wins unless we have pending local changes
       // In this specific app, we'll replace local with remote
       _employees = remoteEmployees;
@@ -289,7 +289,7 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<void> importData() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['json'],
     );
