@@ -1,19 +1,41 @@
+import 'dart:convert';
+
 class Absence {
-  final String id;
-  final String employeeId;
-  final String employeeName;
-  final String type; // maladie, personnel, autre
-  final DateTime date;
-  final String justification;
-  String status; // en_attente, approuvé, refusé
+  final String type;      // غ غ ش | عطلة سنوية | مرض | ...
+  final String date;      // date de l'enregistrement
+  final String? startDate;
+  final int? days;
+  final String? returnDate;
 
   Absence({
-    required this.id,
-    required this.employeeId,
-    required this.employeeName,
     required this.type,
     required this.date,
-    required this.justification,
-    this.status = 'en_attente',
+    this.startDate,
+    this.days,
+    this.returnDate,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'type': type,
+      'date': date,
+      'startDate': startDate,
+      'days': days,
+      'returnDate': returnDate,
+    };
+  }
+
+  factory Absence.fromMap(Map<String, dynamic> map) {
+    return Absence(
+      type: map['type'] ?? '',
+      date: map['date'] ?? '',
+      startDate: map['startDate'],
+      days: map['days']?.toInt(),
+      returnDate: map['returnDate'],
+    );
+  }
+
+  String toJson() => json.encode(toMap());
+
+  factory Absence.fromJson(String source) => Absence.fromMap(json.decode(source));
 }

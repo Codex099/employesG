@@ -1,121 +1,84 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../models/employee.dart';
-import '../providers/language_provider.dart';
 
 class EmployeeCard extends StatelessWidget {
   final Employee employee;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  final VoidCallback onCall;
-  final bool isSelected;
-  final VoidCallback? onLongPress;
-  final VoidCallback? onTap;
 
   const EmployeeCard({
     super.key,
     required this.employee,
     required this.onEdit,
     required this.onDelete,
-    required this.onCall,
-    this.isSelected = false,
-    this.onLongPress,
-    this.onTap,
+    required this.onAbsent,
   });
 
-  void _shareEmployee() {
-    final buffer = StringBuffer();
-    buffer.writeln('💎 PASS VIP: ${employee.name}');
-    buffer.writeln('────────────────────');
-    buffer.writeln('Matricule: ${employee.reg}');
-    if (employee.status != null && employee.status!.isNotEmpty) {
-      buffer.writeln('Poste/Statut: ${employee.status}');
-    }
-    if (employee.phone != null && employee.phone!.isNotEmpty) {
-      buffer.writeln('Téléphone: ${employee.phone}');
-    }
-    if (employee.blood != null && employee.blood!.isNotEmpty) {
-      buffer.writeln('Groupe sanguin: ${employee.blood}');
-    }
-    if (employee.address != null && employee.address!.isNotEmpty) {
-      buffer.writeln('📍 ${employee.address}');
-    }
-    if (employee.notes != null && employee.notes!.isNotEmpty) {
-      buffer.writeln('Notes VIP: ${employee.notes}');
-    }
-    Share.share(buffer.toString(), subject: 'Fiche employé');
-  }
+  final VoidCallback onAbsent;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final lang = context.watch<LanguageProvider>();
-
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return GestureDetector(
-      onLongPress: onLongPress,
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        decoration: BoxDecoration(
-          color: isSelected 
-              ? colorScheme.primary.withOpacity(0.1) 
-              : (isDark ? Theme.of(context).cardColor.withOpacity(0.5) : Colors.white.withOpacity(0.9)),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: isSelected 
-                ? colorScheme.primary 
-                : colorScheme.primary.withOpacity(isDark ? 0.15 : 0.3),
-            width: isSelected ? 2 : 1,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: isSelected 
-                  ? colorScheme.primary.withOpacity(0.2) 
-                  : (isDark ? Colors.black.withOpacity(0.3) : colorScheme.primary.withOpacity(0.05)),
-              blurRadius: isSelected ? 30 : 20,
-              offset: const Offset(0, 10),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          // Left accent border (RTL context, so it's on the right visually in LTR, but we'll use a Positioned)
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: 5,
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF2563eb), Color(0xFF0ea5e9)],
+                ),
+              ),
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(24),
-          child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
+                    // Avatar/Icon
                     Container(
-                      padding: const EdgeInsets.all(2),
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: colorScheme.primary.withOpacity(0.5), width: 2),
-                        boxShadow: [
-                          BoxShadow(color: colorScheme.primary.withOpacity(0.2), blurRadius: 10)
-                        ],
+                        color: const Color(0xFF2563eb).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      child: CircleAvatar(
-                        radius: 26,
-                        backgroundColor: colorScheme.surface,
+                      child: Center(
                         child: Text(
-                          employee.initials,
-                          style: TextStyle(
-                            color: colorScheme.primary,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 1,
+                          employee.name.isNotEmpty ? employee.name[0].toUpperCase() : '?',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF2563eb),
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -123,155 +86,151 @@ class EmployeeCard extends StatelessWidget {
                           Text(
                             employee.name,
                             style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
-                          Text(
-                            'MAT. ${employee.reg}',
-                            style: TextStyle(
-                              color: Colors.grey.shade400,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.5,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2563eb).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              employee.reg,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF2563eb),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: IconButton(
-                        icon: Icon(Icons.ios_share, color: colorScheme.primary),
-                        onPressed: _shareEmployee,
-                        tooltip: 'Partager le Pass VIP',
-                      ),
+                    // Action Buttons in Header
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      onPressed: onEdit,
+                      color: Colors.blue,
                     ),
-                    if (employee.phone != null && employee.phone!.isNotEmpty) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.chat_bubble_outline, color: Colors.green),
-                          onPressed: () {
-                            final uri = Uri.parse('https://wa.me/${employee.phone!.replaceAll(" ", "")}');
-                            // Normalement utiliser launchUrl(uri) de url_launcher
-                            // S'assurer qu'on gère le Future:
-                            launchUrl(uri, mode: LaunchMode.externalApplication);
-                          },
-                          tooltip: 'WhatsApp',
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: IconButton(
-                          icon: Icon(Icons.call, color: colorScheme.primary),
-                          onPressed: onCall,
-                          tooltip: 'Appeler',
-                        ),
-                      ),
-                    ]
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                      onPressed: onDelete,
+                      color: const Color(0xFFef4444),
+                    ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                // Info Chips
                 Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    if (employee.phone != null && employee.phone!.isNotEmpty)
-                      _buildLuxChip(context, '📞', employee.phone!),
-                    if (employee.blood != null && employee.blood!.isNotEmpty)
-                      _buildLuxChip(context, '🩸', employee.blood!),
-                    if (employee.address != null && employee.address!.isNotEmpty)
-                      _buildLuxChip(context, '📍', employee.address!),
-                    if (employee.status != null && employee.status!.isNotEmpty)
-                      _buildLuxChip(context, '👤', employee.status!),
+                    _buildChip(Icons.phone_outlined, employee.phone, Colors.green),
+                    _buildChip(Icons.work_outline, employee.workplace, Colors.blueGrey),
+                    _buildChip(Icons.family_restroom_outlined, employee.status, Colors.orange),
+                    if (employee.blood.isNotEmpty)
+                      _buildChip(Icons.bloodtype_outlined, employee.blood, Colors.red),
+                    if (employee.absence != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.calendar_month_outlined, size: 14, color: Colors.orange),
+                            const SizedBox(width: 4),
+                            Text(
+                              'غائب: ${employee.absence!.type}',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
-                if (employee.notes != null && employee.notes!.isNotEmpty)
+                if (employee.notes.isNotEmpty) ...[
+                  const SizedBox(height: 12),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.03),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFfefce8),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.notes, color: colorScheme.primary, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            employee.notes!,
-                            style: TextStyle(fontSize: 13, color: Colors.grey.shade300, height: 1.5),
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      employee.notes,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? Colors.grey : const Color(0xFF854d0e),
+                      ),
                     ),
                   ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: onEdit,
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          side: BorderSide(color: colorScheme.primary.withOpacity(0.5)),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: onEdit,
+                          icon: const Icon(Icons.edit_outlined, size: 18),
+                          label: const Text('تعديل'),
+                          style: TextButton.styleFrom(backgroundColor: const Color(0xFF2563eb).withOpacity(0.1), foregroundColor: const Color(0xFF2563eb)),
                         ),
-                        child: Text(lang.t('تعديل', 'MODIFIER'), style: TextStyle(color: colorScheme.primary, letterSpacing: 1.2, fontWeight: FontWeight.bold)),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: onDelete,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: Colors.redAccent.withOpacity(0.15),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: onAbsent,
+                          icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                          label: const Text('غياب'),
+                          style: TextButton.styleFrom(backgroundColor: Colors.orange.withOpacity(0.1), foregroundColor: Colors.orange),
                         ),
-                        child: Text(lang.t('حذف', 'RÉVOQUER'), style: const TextStyle(color: Colors.redAccent, letterSpacing: 1.2, fontWeight: FontWeight.bold)),
                       ),
-                    ),
-                  ],
-                ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: onDelete,
+                          icon: const Icon(Icons.delete_outline, size: 18),
+                          label: const Text('حذف'),
+                          style: TextButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.1), foregroundColor: Colors.red),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
-        ),
+        ],
       ),
-    ));
+    );
   }
 
-  Widget _buildLuxChip(BuildContext context, String emoji, String text) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  Widget _buildChip(IconData icon, String label, Color color) {
+    if (label.isEmpty) return const SizedBox.shrink();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.04) : Theme.of(context).colorScheme.primary.withOpacity(0.05),
+        color: Colors.grey.withOpacity(0.1),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Theme.of(context).colorScheme.primary.withOpacity(0.1)),
       ),
-      child: Text('$emoji  $text', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
     );
   }
 }
-
