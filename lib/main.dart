@@ -2,15 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'services/sync_service.dart';
+import 'services/auth_service.dart';
 import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('ar', null);
+
+  final authService = AuthService();
+  await authService.init(); // restore session from SharedPreferences
+
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => SyncService(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => SyncService()),
+        ChangeNotifierProvider.value(value: authService),
+      ],
       child: const MyApp(),
     ),
   );
@@ -55,7 +64,21 @@ class MyApp extends StatelessWidget {
           surfaceTintColor: Color(0xFF131e35),
         ),
       ),
-      home: const HomeScreen(),
+      home: const _AuthGate(),
     );
+  }
+}
+
+/// Redirige vers LoginScreen ou HomeScreen selon la session
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthService>();
+    if (auth.isLoggedIn) {
+      return const HomeScreen();
+    }
+    return const LoginScreen();
   }
 }

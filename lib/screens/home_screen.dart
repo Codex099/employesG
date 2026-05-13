@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/sync_service.dart';
+import '../services/auth_service.dart';
 import '../models/employee.dart';
 import '../models/absence.dart';
+import '../models/user_role.dart';
 import '../widgets/stats_bar.dart';
 import '../widgets/employee_card.dart';
 import 'employee_form_screen.dart';
 import 'absence_screens.dart';
+import 'user_management_screen.dart';
+import 'login_screen.dart';
 import 'package:intl/intl.dart' as intl;
 
 class HomeScreen extends StatefulWidget {
@@ -36,10 +40,14 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(child: _buildEmployeeList()),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => _openForm(context),
-          backgroundColor: const Color(0xFF2563eb),
-          child: const Icon(Icons.add, color: Colors.white),
+        floatingActionButton: Consumer<AuthService>(
+          builder: (_, auth, __) => auth.currentRole.canAdd
+              ? FloatingActionButton(
+                  onPressed: () => _openForm(context),
+                  backgroundColor: const Color(0xFF2563eb),
+                  child: const Icon(Icons.add, color: Colors.white),
+                )
+              : const SizedBox.shrink(),
         ),
       ),
     );
@@ -172,16 +180,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildDrawer(BuildContext context) {
-    return Consumer<SyncService>(
-      builder: (context, syncService, _) {
+    return Consumer2<SyncService, AuthService>(
+      builder: (context, syncService, auth, _) {
+        final role = auth.currentRole;
+        final user = auth.currentUser;
         return Drawer(
           child: Column(
             children: [
-              // Header like HTML sidebar
+              // ── Header ──
               Container(
                 width: double.infinity,
                 padding: EdgeInsets.only(
-                  top: MediaQuery.of(context).padding.top + 28,
+                  top: MediaQuery.of(context).padding.top + 20,
                   bottom: 20, left: 20, right: 20,
                 ),
                 decoration: const BoxDecoration(
@@ -199,27 +209,49 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 3),
                     Text('نظام متابعة القوى العاملة',
                       style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 12)),
+                    const SizedBox(height: 12),
+                    // User info chip
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.18),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.account_circle_rounded, color: Colors.white, size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${user?.fullName ?? user?.username ?? ''} · ${role.label}',
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
 
-              // Body
+              // ── Body ──
               Expanded(
                 child: ListView(
                   padding: const EdgeInsets.all(12),
                   children: [
-                    // ➕ إضافة عاملة جديدة
-                    _sidebarBtn(
-                      icon: '➕',
-                      label: 'إضافة عاملة جديدة',
-                      onTap: () {
-                        Navigator.pop(context);
-                        _openForm(context);
-                      },
-                    ),
-                    const SizedBox(height: 6),
+                    // ➕ إضافة — Admin + Manager only
+                    if (role.canAdd) ...[  
+                      _sidebarBtn(
+                        icon: '➕',
+                        label: 'إضافة عاملة جديدة',
+                        onTap: () {
+                          Navigator.pop(context);
+                          _openForm(context);
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                    ],
 
-                    // 📅 قائمة الغيابات
+                    // 📅 قائمة الغيابات — tous
                     _sidebarBtn(
                       icon: '📅',
                       label: 'قائمة الغيابات',
@@ -232,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 6),
 
-                    // 🗃️ الأرشيف
+                    // 🗃️ الأرشيف — tous
                     _sidebarBtn(
                       icon: '🗃️',
                       label: 'الأرشيف',
@@ -242,41 +274,69 @@ class _HomeScreenState extends State<HomeScreen> {
                           builder: (_) => const ArchiveScreen()));
                       },
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 6),
+
+                    // 👥 إدارة المستخدمين — Admin only
+                    if (role.canManageUsers) ...[  
+                      _sidebarBtn(
+                        icon: '👥',
+                        label: 'إدارة المستخدمين',
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => const UserManagementScreen()));
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                    ],
+
+                    const SizedBox(height: 8),
                     Divider(color: Colors.grey.withValues(alpha: 0.2), thickness: 1),
                     const SizedBox(height: 6),
 
-                    // ⚙️ الإعدادات (expandable)
+                    // ⚙️ الإعدادات
                     _SidebarExpandable(
                       icon: '⚙️',
                       label: 'الإعدادات',
                       children: [
-                        // وضع ليلي
                         _settingsBtn(
                           icon: syncService.isDarkMode ? '☀️' : '🌙',
                           label: syncService.isDarkMode ? 'الوضع النهاري' : 'الوضع الليلي',
                           trailing: _buildToggle(syncService.isDarkMode),
                           onTap: () => syncService.toggleTheme(),
                         ),
-                        // تصدير
-                        _settingsBtn(
-                          icon: '📥',
-                          label: 'تصدير البيانات',
-                          onTap: () {
-                            Navigator.pop(context);
-                            syncService.exportData();
-                          },
-                        ),
-                        // استيراد
-                        _settingsBtn(
-                          icon: '📤',
-                          label: 'استيراد البيانات',
-                          onTap: () {
-                            Navigator.pop(context);
-                            syncService.importData();
-                          },
-                        ),
+                        if (role.canImportExport) ...[
+                          _settingsBtn(
+                            icon: '📥',
+                            label: 'تصدير البيانات',
+                            onTap: () { Navigator.pop(context); syncService.exportData(); },
+                          ),
+                          _settingsBtn(
+                            icon: '📤',
+                            label: 'استيراد البيانات',
+                            onTap: () { Navigator.pop(context); syncService.importData(); },
+                          ),
+                        ],
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    Divider(color: Colors.grey.withValues(alpha: 0.2), thickness: 1),
+                    const SizedBox(height: 6),
+
+                    // 🚪 تسجيل الخروج
+                    _sidebarBtn(
+                      icon: '🚪',
+                      label: 'تسجيل الخروج',
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await auth.logout();
+                        if (context.mounted) {
+                          Navigator.of(context).pushAndRemoveUntil(
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            (_) => false,
+                          );
+                        }
+                      },
                     ),
                   ],
                 ),
@@ -430,11 +490,12 @@ class _HomeScreenState extends State<HomeScreen> {
           itemCount: filtered.length,
           itemBuilder: (context, index) {
             final employee = filtered[index];
+            final role = context.read<AuthService>().currentRole;
             return EmployeeCard(
               employee: employee,
-              onEdit: () => _openForm(context, employee: employee),
-              onDelete: () => _confirmDelete(context, employee),
-              onAbsent: () => _showAbsenceDialog(context, employee),
+              onEdit: role.canEdit ? () => _openForm(context, employee: employee) : null,
+              onDelete: role.canDelete ? () => _confirmDelete(context, employee) : null,
+              onAbsent: role.canMarkAbsence ? () => _showAbsenceDialog(context, employee) : null,
             );
           },
         );

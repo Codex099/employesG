@@ -5,18 +5,17 @@ import '../models/employee.dart';
 
 class EmployeeCard extends StatelessWidget {
   final Employee employee;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+  final VoidCallback? onAbsent;
 
   const EmployeeCard({
     super.key,
     required this.employee,
-    required this.onEdit,
-    required this.onDelete,
-    required this.onAbsent,
+    this.onEdit,
+    this.onDelete,
+    this.onAbsent,
   });
-
-  final VoidCallback onAbsent;
 
   @override
   Widget build(BuildContext context) {
@@ -39,10 +38,10 @@ class EmployeeCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onLongPress: () {
+          onLongPress: onAbsent != null ? () {
             HapticFeedback.mediumImpact();
-            onAbsent();
-          },
+            onAbsent!();
+          } : null,
           borderRadius: BorderRadius.circular(20),
           child: Stack(
             children: [
@@ -122,16 +121,18 @@ class EmployeeCard extends StatelessWidget {
                           ),
                         ),
                         // Action Buttons in Header
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined, size: 20),
-                          onPressed: onEdit,
-                          color: Colors.blue,
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, size: 20),
-                          onPressed: onDelete,
-                          color: const Color(0xFFef4444),
-                        ),
+                        if (onEdit != null)
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined, size: 20),
+                            onPressed: onEdit,
+                            color: Colors.blue,
+                          ),
+                        if (onDelete != null)
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, size: 20),
+                            onPressed: onDelete,
+                            color: const Color(0xFFef4444),
+                          ),
                       ],
                     ),
                     const SizedBox(height: 16),

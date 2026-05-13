@@ -1,10 +1,13 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/employee.dart';
+import '../models/app_user.dart';
 
 class SheetsService {
-  // TODO: The user must provide their SCRIPT_URL
-  static const String scriptUrl = 'https://script.google.com/macros/s/AKfycbz4_oNLi4lv-_OaBP5te3-QUY05aCCKyA0SkJtIUteJWx25xK0cfYy07Z4J_yTHyBU/exec';
+  static const String scriptUrl =
+      'https://script.google.com/macros/s/AKfycbzORBJeWd2_8IKOoCh-Cjo6EiAIp1V7ihVnxIfyVSvsxHhdoQ-KxMYUlMs2rOLnDYl6/exec';
+
+  // ─── Employees ────────────────────────────────────────────────────────────
 
   Future<List<Employee>?> fetchAll() async {
     try {
@@ -14,7 +17,7 @@ class SheetsService {
         return data.map((e) => Employee.fromMap(e)).toList();
       }
     } catch (e) {
-      print('Error fetching from Sheets: $e');
+      print('Error fetching employees: $e');
     }
     return null;
   }
@@ -28,8 +31,42 @@ class SheetsService {
   }
 
   Future<bool> syncAll(List<Employee> employees) async {
-    return _sendAction('sync_all', data: employees.map((e) => e.toMap()).toList());
+    return _sendAction('sync_all',
+        data: employees.map((e) => e.toMap()).toList());
   }
+
+  // ─── Users (feuille "users") ──────────────────────────────────────────────
+
+  Future<List<AppUser>?> fetchUsers() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$scriptUrl?action=get_users'),
+      );
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        if (decoded is List) {
+          return decoded.map((e) => AppUser.fromMap(e)).toList();
+        }
+      }
+    } catch (e) {
+      print('Error fetching users: $e');
+    }
+    return null;
+  }
+
+  Future<bool> addUser(AppUser user) async {
+    return _sendAction('add_user', data: user.toMap());
+  }
+
+  Future<bool> updateUser(AppUser user) async {
+    return _sendAction('update_user', data: user.toMap());
+  }
+
+  Future<bool> deleteUser(String username) async {
+    return _sendAction('delete_user', reg: username);
+  }
+
+  // ─── Generic ──────────────────────────────────────────────────────────────
 
   Future<bool> _sendAction(String action, {dynamic data, String? reg}) async {
     try {
@@ -41,9 +78,9 @@ class SheetsService {
           if (reg != null) 'reg': reg,
         }),
       );
-      return response.statusCode == 200 || response.statusCode == 302; // 302 is common for Apps Script redirects
+      return response.statusCode == 200 || response.statusCode == 302;
     } catch (e) {
-      print('Error sending action $action to Sheets: $e');
+      print('Error sending action $action: $e');
       return false;
     }
   }
