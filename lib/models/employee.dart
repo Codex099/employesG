@@ -31,6 +31,9 @@ class Employee {
     this.archivedAbsences = const [],
   });
 
+  // Sentinel used so copyWith(absence: null) correctly clears the absence
+  static const Object _notSet = Object();
+
   Employee copyWith({
     String? name,
     String? reg,
@@ -42,7 +45,7 @@ class Employee {
     int? children,
     String? notes,
     int? created,
-    Absence? absence,
+    Object? absence = _notSet, // accepts Absence or explicit null
     List<Absence>? archivedAbsences,
   }) {
     return Employee(
@@ -56,7 +59,7 @@ class Employee {
       children: children ?? this.children,
       notes: notes ?? this.notes,
       created: created ?? this.created,
-      absence: absence ?? this.absence,
+      absence: identical(absence, _notSet) ? this.absence : absence as Absence?,
       archivedAbsences: archivedAbsences ?? this.archivedAbsences,
     );
   }

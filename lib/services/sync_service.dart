@@ -11,6 +11,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../models/absence.dart';
+import 'package:intl/intl.dart' as intl;
 
 class SyncService extends ChangeNotifier {
   final StorageService _storage = StorageService();
@@ -47,10 +48,61 @@ class SyncService extends ChangeNotifier {
     await _notifications.initialize(settings: const InitializationSettings(android: android, iOS: ios));
   }
 
-  Future<void> showNotification(String title, String body) async {
-    const android = AndroidNotificationDetails('absences_channel', 'Absences', importance: Importance.max, priority: Priority.high);
+  Future<void> showNotification(String title, String body, {int id = 0}) async {
+    const android = AndroidNotificationDetails(
+      'absences_channel', 'Absences',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
     const ios = DarwinNotificationDetails();
-    await _notifications.show(id: 0, title: title, body: body, notificationDetails: const NotificationDetails(android: android, iOS: ios));
+    await _notifications.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: const NotificationDetails(android: android, iOS: ios),
+    );
+  }
+
+  /// يُرسل إشعاراً لكل عامل موعد التحاقه هو اليوم
+  Future<void> checkReturnDates() async {
+    final today = intl.DateFormat('yyyy/MM/dd').format(DateTime.now());
+    for (final employee in _employees) {
+      final ab = employee.absence;
+      if (ab == null || ab.returnDate == null) continue;
+      if (ab.returnDate == today) {
+        final notifId = (employee.reg.hashCode.abs() % 90000) + 10000;
+        await showNotification(
+          '🔔 التحاق اليوم',
+          '${employee.name} من المفترض أن تلتحق اليوم',
+          id: notifId,
+        );
+      }
+    }
+  }
+
+  Future<bool> _checkActualConnectivity() async {
+    if (kIsWeb) return true;
+    try {
+      final result = await InternetAddress.lookup('google.com')
+          .timeout(const Duration(seconds: 3));
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _updateOnlineStatus(ConnectivityResult result) async {
+    bool online = result != ConnectivityResult.none;
+    if (!online) {
+      online = await _checkActualConnectivity();
+    }
+    if (_isOnline != online) {
+      _isOnline = online;
+      if (_isOnline) {
+        _syncPendingActions();
+      }
+      notifyListeners();
+    }
   }
 
   Future<void> _init() async {
@@ -61,28 +113,30 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
 
     // 2. Monitor connectivity
-    _connectivity.onConnectivityChanged.listen((ConnectivityResult result) {
-      _isOnline = result != ConnectivityResult.none;
-      if (_isOnline) {
-        _syncPendingActions();
-      }
-      notifyListeners();
+    _connectivity.onConnectivityChanged.listen((ConnectivityResult result) async {
+      await _updateOnlineStatus(result);
     });
 
     // Check initial connectivity
     final result = await _connectivity.checkConnectivity();
-    _isOnline = result != ConnectivityResult.none;
+    await _updateOnlineStatus(result);
 
-    // 3. Start polling every 10 seconds
+    // 3. Start polling every 10 seconds + check return dates on startup
     _startPolling();
+    await checkReturnDates();
   }
 
   void _startPolling() {
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(const Duration(seconds: 10), (timer) async {
+      if (!_isOnline) {
+        final result = await _connectivity.checkConnectivity();
+        await _updateOnlineStatus(result);
+      }
       if (_isOnline && !_isSyncing && !_isOfflineManual) {
         await fetchFromSheets();
       }
+      await checkReturnDates();
     });
   }
 
@@ -216,8 +270,14 @@ class SyncService extends ChangeNotifier {
       _employees[index] = employee.copyWith(absence: absence);
       await _storage.saveEmployees(_employees);
       notifyListeners();
-      
-      showNotification('تسجيل غياب', 'تم تسجيل غياب لـ ${employee.name}');
+
+      // إشعار فريد بـID خاص بالعامل
+      final notifId = employee.reg.hashCode.abs() % 10000;
+      await showNotification(
+        '📅 تسجيل غياب',
+        'تم تسجيل غياب لـ ${employee.name} · ${absence.type}',
+        id: notifId,
+      );
 
       if (_isOnline && !_isOfflineManual) {
         await _sheets.syncAll(_employees);

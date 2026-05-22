@@ -68,7 +68,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: _buildTextField('رقم التسجيل *', _regController, Icons.badge, (v) => v!.isEmpty ? 'الرجاء إدخال الرقم' : null, keyboardType: TextInputType.number),
+                      child: _buildTextField('رقم التسجيل *', _regController, Icons.badge, (v) => v!.isEmpty ? 'الرجاء إدخال الرقم' : null, keyboardType: TextInputType.phone),
                     ),
                     const SizedBox(width: 16),
                     Expanded(

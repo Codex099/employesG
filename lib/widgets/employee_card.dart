@@ -8,6 +8,7 @@ class EmployeeCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onAbsent;
+  final VoidCallback? onTap;
 
   const EmployeeCard({
     super.key,
@@ -15,6 +16,7 @@ class EmployeeCard extends StatelessWidget {
     this.onEdit,
     this.onDelete,
     this.onAbsent,
+    this.onTap,
   });
 
   @override
@@ -42,6 +44,7 @@ class EmployeeCard extends StatelessWidget {
             HapticFeedback.mediumImpact();
             onAbsent!();
           } : null,
+          onTap: onTap,
           borderRadius: BorderRadius.circular(20),
           child: Stack(
             children: [

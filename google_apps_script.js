@@ -60,11 +60,13 @@ function doPost(e) {
 
 function getAllEmployees() {
   const sheet = getOrCreateSheet(EMPLOYEES_SHEET);
-  const data  = sheet.getDataRange().getValues();
-  if (data.length <= 1) return [];
+  if (sheet.getLastRow() <= 1) return [];
 
-  const headers = data[0];
-  return data.slice(1).map(row => {
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  // getDisplayValues() returns the formatted string — preserves leading zeros for text cells
+  const displayData = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getDisplayValues();
+
+  return displayData.map(row => {
     const obj = {};
     headers.forEach((h, i) => obj[h] = row[i]);
     return obj;
@@ -74,8 +76,24 @@ function getAllEmployees() {
 function addEmployee(data) {
   const sheet   = getOrCreateSheet(EMPLOYEES_SHEET);
   const headers = getHeaders(sheet);
-  const row     = headers.map(h => data[h] !== undefined ? data[h] : '');
-  sheet.appendRow(row);
+
+  // Force String() on every value so "0123" is NEVER auto-converted to 123
+  const row = headers.map(h => (data[h] !== undefined ? String(data[h]) : ''));
+
+  const nextRow = sheet.getLastRow() + 1;
+
+  // Pre-format reg & phone columns as Plain Text
+  ['reg', 'phone'].forEach(col => {
+    const idx = headers.indexOf(col);
+    if (idx >= 0) {
+      sheet.getRange(nextRow, idx + 1).setNumberFormat('@');
+    }
+  });
+
+  // Use setValues instead of appendRow — appendRow auto-converts "0123" → 123
+  // even when the column is pre-formatted as Plain Text.
+  sheet.getRange(nextRow, 1, 1, headers.length).setValues([row]);
+
   return { success: true };
 }
 
@@ -105,8 +123,17 @@ function syncAll(employees) {
   }
 
   // Re-insert all employees
-  const rows = employees.map(emp => headers.map(h => emp[h] !== undefined ? emp[h] : ''));
+  // Force String() to protect leading zeros ("0123" must not become 123)
+  const rows = employees.map(emp => headers.map(h => (emp[h] !== undefined ? String(emp[h]) : '')));
   if (rows.length > 0) {
+    // Format reg & phone columns as Plain Text BEFORE setValues
+    // so "0123" is not auto-converted to the number 123
+    ['reg', 'phone'].forEach(col => {
+      const idx = headers.indexOf(col);
+      if (idx >= 0) {
+        sheet.getRange(2, idx + 1, rows.length, 1).setNumberFormat('@');
+      }
+    });
     sheet.getRange(2, 1, rows.length, headers.length).setValues(rows);
   }
   return { success: true };
@@ -212,6 +239,20 @@ function getOrCreateUsersSheet() {
 
 function getHeaders(sheet) {
   return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+}
+
+/**
+ * Forces 'Plain Text' number format on the reg and phone columns
+ * so that values like "0123" are never auto-converted to the number 123.
+ */
+function ensureTextColumns(sheet, headers) {
+  ['reg', 'phone'].forEach(col => {
+    const idx = headers.indexOf(col);
+    if (idx >= 0 && sheet.getLastRow() > 1) {
+      sheet.getRange(2, idx + 1, sheet.getLastRow() - 1, 1)
+           .setNumberFormat('@');
+    }
+  });
 }
 
 function jsonResponse(data) {

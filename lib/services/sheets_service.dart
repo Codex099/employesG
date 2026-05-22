@@ -5,7 +5,7 @@ import '../models/app_user.dart';
 
 class SheetsService {
   static const String scriptUrl =
-      'https://script.google.com/macros/s/AKfycbzORBJeWd2_8IKOoCh-Cjo6EiAIp1V7ihVnxIfyVSvsxHhdoQ-KxMYUlMs2rOLnDYl6/exec';
+      'https://script.google.com/macros/s/AKfycbwq3hLf6ZAX6BVijaZOg0bzwP342DM96iwkboDPypItd8pfqsemvOeSb6lGpDVd5X8Z/exec';
 
   // ─── Employees ────────────────────────────────────────────────────────────
 
