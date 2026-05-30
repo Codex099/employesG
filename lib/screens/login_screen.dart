@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../services/sync_service.dart';
 import 'home_screen.dart';
+import '../main.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,7 +28,7 @@ class _LoginScreenState extends State<LoginScreen>
     super.initState();
     _animCtrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 900),
     );
     _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(
@@ -67,216 +68,250 @@ class _LoginScreenState extends State<LoginScreen>
     final auth = context.watch<AuthService>();
 
     return Scaffold(
-      backgroundColor:
-          isDark ? const Color(0xFF0b1120) : const Color(0xFFf0f4ff),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: FadeTransition(
-              opacity: _fadeAnim,
-              child: SlideTransition(
-                position: _slideAnim,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // ── Logo / Icon ──
-                    Container(
-                      width: 90,
-                      height: 90,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF2563eb), Color(0xFF7c3aed)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF2563eb).withOpacity(0.4),
-                            blurRadius: 24,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.shield_rounded,
-                        size: 46,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 28),
+      body: Stack(
+        children: [
+          // ── Gradient background ──
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topRight,
+                end: Alignment.bottomLeft,
+                colors: [kPrimaryDark, Color(0xFF0E7490), Color(0xFF1D91C0)],
+                stops: [0.0, 0.45, 1.0],
+              ),
+            ),
+          ),
 
-                    // ── Title ──
-                    Text(
-                      'نظام إدارة العمال',
-                      style: GoogleFonts.almarai(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: isDark ? Colors.white : const Color(0xFF0f172a),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'تسجيل الدخول للمتابعة',
-                      style: GoogleFonts.almarai(
-                        fontSize: 14,
-                        color: isDark
-                            ? Colors.white54
-                            : const Color(0xFF64748b),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 40),
+          // ── Top wave shape ──
+          Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.42,
+              width: double.infinity,
+              child: const _WaveDecoration(),
+            ),
+          ),
 
-                    // ── Card ──
-                    Container(
-                      padding: const EdgeInsets.all(28),
-                      decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF131e35)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: isDark
-                              ? Colors.white.withOpacity(0.06)
-                              : Colors.black.withOpacity(0.05),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
-                            blurRadius: 32,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: Form(
-                        key: _formKey,
-                        child: Directionality(
-                          textDirection: TextDirection.rtl,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              // Username
-                              _buildField(
-                                controller: _usernameCtrl,
-                                label: 'اسم المستخدم',
-                                icon: Icons.person_outline_rounded,
-                                isDark: isDark,
-                                validator: (v) => (v == null || v.trim().isEmpty)
-                                    ? 'أدخل اسم المستخدم'
-                                    : null,
-                              ),
-                              const SizedBox(height: 16),
+          // ── Content ──
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: FadeTransition(
+                  opacity: _fadeAnim,
+                  child: SlideTransition(
+                    position: _slideAnim,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 24),
 
-                              // Password
-                              _buildField(
-                                controller: _passwordCtrl,
-                                label: 'كلمة المرور',
-                                icon: Icons.lock_outline_rounded,
-                                isDark: isDark,
-                                obscure: _obscure,
-                                suffix: IconButton(
-                                  icon: Icon(
-                                    _obscure
-                                        ? Icons.visibility_off_rounded
-                                        : Icons.visibility_rounded,
-                                    color: isDark
-                                        ? Colors.white38
-                                        : const Color(0xFF94a3b8),
-                                    size: 20,
-                                  ),
-                                  onPressed: () =>
-                                      setState(() => _obscure = !_obscure),
-                                ),
-                                validator: (v) => (v == null || v.isEmpty)
-                                    ? 'أدخل كلمة المرور'
-                                    : null,
-                              ),
-
-                              // Error
-                              if (auth.errorMessage != null) ...[
-                                const SizedBox(height: 14),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        const Color(0xFFef4444).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                        color: const Color(0xFFef4444)
-                                            .withOpacity(0.3)),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.error_outline_rounded,
-                                          color: Color(0xFFef4444), size: 18),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          auth.errorMessage!,
-                                          style: GoogleFonts.almarai(
-                                              fontSize: 13,
-                                              color: const Color(0xFFef4444)),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                              const SizedBox(height: 24),
-
-                              // Submit button
-                              AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                height: 52,
-                                child: ElevatedButton(
-                                  onPressed: auth.isLoading ? null : _submit,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF2563eb),
-                                    foregroundColor: Colors.white,
-                                    disabledBackgroundColor:
-                                        const Color(0xFF2563eb).withOpacity(0.5),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    elevation: 0,
-                                  ),
-                                  child: auth.isLoading
-                                      ? const SizedBox(
-                                          width: 22,
-                                          height: 22,
-                                          child: CircularProgressIndicator(
-                                            color: Colors.white,
-                                            strokeWidth: 2.5,
-                                          ),
-                                        )
-                                      : Text(
-                                          'تسجيل الدخول',
-                                          style: GoogleFonts.almarai(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                ),
+                        // ── Logo ──
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(28),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF0B5F7A).withOpacity(0.5),
+                                blurRadius: 40,
+                                spreadRadius: 4,
+                                offset: const Offset(0, 12),
                               ),
                             ],
                           ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(28),
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              width: 110,
+                              height: 110,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
+                        const SizedBox(height: 20),
 
-                    // Hint
-                   
-                  ],
+                        // ── Title ──
+                        Text(
+                          'نظام إدارة العمال',
+                          style: GoogleFonts.almarai(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'تسجيل الدخول للمتابعة',
+                          style: GoogleFonts.almarai(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.75),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 36),
+
+                        // ── Login card ──
+                        Container(
+                          padding: const EdgeInsets.all(28),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF0D2030)
+                                : Colors.white,
+                            borderRadius: BorderRadius.circular(28),
+                            border: Border.all(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.07)
+                                  : const Color(0xFF22D3EE).withOpacity(0.2),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    Colors.black.withOpacity(isDark ? 0.4 : 0.12),
+                                blurRadius: 40,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Form(
+                            key: _formKey,
+                            child: Directionality(
+                              textDirection: TextDirection.rtl,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  _buildField(
+                                    controller: _usernameCtrl,
+                                    label: 'اسم المستخدم',
+                                    icon: Icons.person_outline_rounded,
+                                    isDark: isDark,
+                                    validator: (v) =>
+                                        (v == null || v.trim().isEmpty)
+                                            ? 'أدخل اسم المستخدم'
+                                            : null,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildField(
+                                    controller: _passwordCtrl,
+                                    label: 'كلمة المرور',
+                                    icon: Icons.lock_outline_rounded,
+                                    isDark: isDark,
+                                    obscure: _obscure,
+                                    suffix: IconButton(
+                                      icon: Icon(
+                                        _obscure
+                                            ? Icons.visibility_off_rounded
+                                            : Icons.visibility_rounded,
+                                        color: isDark
+                                            ? Colors.white38
+                                            : const Color(0xFF94a3b8),
+                                        size: 20,
+                                      ),
+                                      onPressed: () =>
+                                          setState(() => _obscure = !_obscure),
+                                    ),
+                                    validator: (v) =>
+                                        (v == null || v.isEmpty)
+                                            ? 'أدخل كلمة المرور'
+                                            : null,
+                                  ),
+
+                                  // Error
+                                  if (auth.errorMessage != null) ...[
+                                    const SizedBox(height: 14),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 14, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFef4444)
+                                            .withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                            color: const Color(0xFFef4444)
+                                                .withOpacity(0.3)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.error_outline_rounded,
+                                              color: Color(0xFFef4444), size: 18),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              auth.errorMessage!,
+                                              style: GoogleFonts.almarai(
+                                                  fontSize: 13,
+                                                  color:
+                                                      const Color(0xFFef4444)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 24),
+
+                                  // Submit button
+                                  Container(
+                                    height: 52,
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        colors: [kPrimaryDark, kPrimary],
+                                        begin: Alignment.centerRight,
+                                        end: Alignment.centerLeft,
+                                      ),
+                                      borderRadius: BorderRadius.circular(14),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: kPrimary.withOpacity(0.4),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                      ],
+                                    ),
+                                    child: ElevatedButton(
+                                      onPressed: auth.isLoading ? null : _submit,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.transparent,
+                                        shadowColor: Colors.transparent,
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                        ),
+                                      ),
+                                      child: auth.isLoading
+                                          ? const SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2.5,
+                                              ),
+                                            )
+                                          : Text(
+                                              'تسجيل الدخول',
+                                              style: GoogleFonts.almarai(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -303,13 +338,12 @@ class _LoginScreenState extends State<LoginScreen>
           color: isDark ? Colors.white54 : const Color(0xFF64748b),
           fontSize: 14,
         ),
-        prefixIcon:
-            Icon(icon, color: const Color(0xFF2563eb), size: 20),
+        prefixIcon: Icon(icon, color: kPrimary, size: 20),
         suffixIcon: suffix,
         filled: true,
         fillColor: isDark
             ? Colors.white.withOpacity(0.05)
-            : const Color(0xFFf8fafc),
+            : const Color(0xFFf0faff),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
@@ -319,22 +353,20 @@ class _LoginScreenState extends State<LoginScreen>
           borderSide: BorderSide(
             color: isDark
                 ? Colors.white.withOpacity(0.08)
-                : Colors.black.withOpacity(0.08),
+                : const Color(0xFF22D3EE).withOpacity(0.25),
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFF2563eb), width: 1.5),
+          borderSide: const BorderSide(color: kPrimary, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide:
-              const BorderSide(color: Color(0xFFef4444), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFFef4444), width: 1.5),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide:
-              const BorderSide(color: Color(0xFFef4444), width: 1.5),
+          borderSide: const BorderSide(color: Color(0xFFef4444), width: 1.5),
         ),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -342,4 +374,57 @@ class _LoginScreenState extends State<LoginScreen>
       validator: validator,
     );
   }
+}
+
+/// Decorative wave at top of login page
+class _WaveDecoration extends StatelessWidget {
+  const _WaveDecoration();
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _WavePainter(),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _WavePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.05)
+      ..style = PaintingStyle.fill;
+
+    final path = Path()
+      ..moveTo(0, size.height * 0.6)
+      ..quadraticBezierTo(
+          size.width * 0.25, size.height * 0.45, size.width * 0.5, size.height * 0.6)
+      ..quadraticBezierTo(
+          size.width * 0.75, size.height * 0.75, size.width, size.height * 0.55)
+      ..lineTo(size.width, 0)
+      ..lineTo(0, 0)
+      ..close();
+
+    canvas.drawPath(path, paint);
+
+    final paint2 = Paint()
+      ..color = Colors.white.withOpacity(0.04)
+      ..style = PaintingStyle.fill;
+
+    final path2 = Path()
+      ..moveTo(0, size.height * 0.75)
+      ..quadraticBezierTo(
+          size.width * 0.3, size.height * 0.55, size.width * 0.6, size.height * 0.7)
+      ..quadraticBezierTo(
+          size.width * 0.8, size.height * 0.82, size.width, size.height * 0.65)
+      ..lineTo(size.width, 0)
+      ..lineTo(0, 0)
+      ..close();
+
+    canvas.drawPath(path2, paint2);
+  }
+
+  @override
+  bool shouldRepaint(_WavePainter old) => false;
 }

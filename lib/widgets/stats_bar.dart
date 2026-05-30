@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/sync_service.dart';
+import '../main.dart';
 
 class StatsBar extends StatelessWidget {
   const StatsBar({super.key});
@@ -32,7 +33,7 @@ class StatsBar extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatItem('إجمالي', total.toString(), Colors.blue),
+              _buildStatItem('إجمالي', total.toString(), kPrimary),
               _buildStatDivider(),
               _buildStatItem('متزوج', married.toString(), Colors.green),
               _buildStatDivider(),

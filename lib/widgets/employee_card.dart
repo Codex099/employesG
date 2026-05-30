@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../models/employee.dart';
+import '../main.dart';
 
 class EmployeeCard extends StatelessWidget {
   final Employee employee;
@@ -59,7 +60,7 @@ class EmployeeCard extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Color(0xFF2563eb), Color(0xFF0ea5e9)],
+                      colors: [kPrimaryDark, kPrimary],
                     ),
                   ),
                 ),
@@ -76,7 +77,7 @@ class EmployeeCard extends StatelessWidget {
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: const Color(0xFF2563eb).withOpacity(0.1),
+                            color: kPrimary.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: Center(
@@ -85,7 +86,7 @@ class EmployeeCard extends StatelessWidget {
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF2563eb),
+                                color: kPrimary,
                               ),
                             ),
                           ),
@@ -108,7 +109,7 @@ class EmployeeCard extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF2563eb).withOpacity(0.1),
+                                  color: kPrimary.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -116,7 +117,7 @@ class EmployeeCard extends StatelessWidget {
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
-                                    color: Color(0xFF2563eb),
+                                    color: kPrimary,
                                   ),
                                 ),
                               ),

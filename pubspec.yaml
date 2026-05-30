@@ -90,7 +90,13 @@ flutter:
   #       - asset: fonts/TrajanPro.ttf
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
-  #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
+flutter_launcher_icons:
+  android: "egm"
+  ios: true
+  image_path: "assets/images/logo_bordered.png"
+  adaptive_icon_background: "assets/images/logo_bordered.png"
+  adaptive_icon_foreground: "assets/images/empty.png"
+  min_sdk_android: 21
