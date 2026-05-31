@@ -68,4 +68,16 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getBool(key) ?? false;
   }
+
+  // --- Generic String ---
+
+  Future<void> saveString(String key, String value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(key, value);
+  }
+
+  Future<String?> loadString(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(key);
+  }
 }

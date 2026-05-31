@@ -10,11 +10,11 @@ extension UserRoleExtension on UserRole {
   /// Peut modifier un employé
   bool get canEdit => this == UserRole.admin || this == UserRole.manager;
 
-  /// Peut marquer une absence
+  /// Peut marquer une absence (ajouter)
   bool get canMarkAbsence => this == UserRole.admin || this == UserRole.manager;
 
-  /// Peut archiver/supprimer une absence
-  bool get canManageAbsence => this == UserRole.admin || this == UserRole.manager;
+  /// Peut archiver/supprimer une absence — ADMIN uniquement
+  bool get canManageAbsence => this == UserRole.admin;
 
   /// Peut gérer les comptes utilisateurs de l'app
   bool get canManageUsers => this == UserRole.admin;

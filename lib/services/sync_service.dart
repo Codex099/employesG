@@ -32,7 +32,16 @@ class SyncService extends ChangeNotifier {
   bool _isOfflineManual = false;
   bool get isOfflineManual => _isOfflineManual;
 
+  String _locale = 'ar';
+  String get locale => _locale;
+
   final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
+
+  /// Tracks employee regs already notified for return-date today, to avoid
+  /// repeating the same notification every 10-second cycle.
+  Set<String> _notifiedToday = {};
+  String _notifiedDate = '';   // the date _notifiedToday applies to
+
 
   Timer? _pollingTimer;
   final Connectivity _connectivity = Connectivity();
@@ -43,9 +52,14 @@ class SyncService extends ChangeNotifier {
   }
 
   Future<void> _initNotifications() async {
-    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const android = AndroidInitializationSettings('@mipmap/egm');
     const ios = DarwinInitializationSettings();
     await _notifications.initialize(settings: const InitializationSettings(android: android, iOS: ios));
+    
+    // Request permission for Android 13+
+    if (Platform.isAndroid) {
+      await _notifications.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()?.requestNotificationsPermission();
+    }
   }
 
   Future<void> showNotification(String title, String body, {int id = 0}) async {
@@ -63,22 +77,44 @@ class SyncService extends ChangeNotifier {
     );
   }
 
-  /// يُرسل إشعاراً لكل عامل موعد التحاقه هو اليوم
   Future<void> checkReturnDates() async {
     final today = intl.DateFormat('yyyy/MM/dd').format(DateTime.now());
+    final prefKey = 'notified_$today';
+
+    // Reset the memory cache when date changes, load new set from storage
+    if (_notifiedDate != today) {
+      _notifiedDate = today;
+      final savedStr = await _storage.loadString(prefKey);
+      if (savedStr != null && savedStr.isNotEmpty) {
+        _notifiedToday = Set<String>.from(json.decode(savedStr));
+      } else {
+        _notifiedToday.clear();
+      }
+    }
+
+    bool updated = false;
+
     for (final employee in _employees) {
       final ab = employee.absence;
       if (ab == null || ab.returnDate == null) continue;
-      if (ab.returnDate == today) {
-        final notifId = (employee.reg.hashCode.abs() % 90000) + 10000;
-        await showNotification(
-          '🔔 التحاق اليوم',
-          '${employee.name} من المفترض أن تلتحق اليوم',
-          id: notifId,
-        );
-      }
+      if (ab.returnDate != today) continue;
+      if (_notifiedToday.contains(employee.reg)) continue;
+
+      final notifId = (employee.reg.hashCode.abs() % 90000) + 10000;
+      await showNotification(
+        'التحاق اليوم',
+        '${employee.name} من المفترض أن تلتحق اليوم',
+        id: notifId,
+      );
+      _notifiedToday.add(employee.reg);
+      updated = true;
+    }
+
+    if (updated) {
+      await _storage.saveString(prefKey, json.encode(_notifiedToday.toList()));
     }
   }
+
 
   Future<bool> _checkActualConnectivity() async {
     if (kIsWeb) return true;
@@ -110,6 +146,10 @@ class SyncService extends ChangeNotifier {
     _employees = await _storage.loadEmployees();
     _isDarkMode = await _storage.loadThemeMode();
     _isOfflineManual = await _storage.loadBool('offline_manual');
+    final savedLocale = await _storage.loadString('app_locale');
+    if (savedLocale != null && savedLocale.isNotEmpty) {
+      _locale = savedLocale;
+    }
     notifyListeners();
 
     // 2. Monitor connectivity
@@ -150,8 +190,26 @@ class SyncService extends ChangeNotifier {
 
     final remoteEmployees = await _sheets.fetchAll();
     if (remoteEmployees != null) {
-      // Simple strategy: remote wins unless we have pending local changes
-      // In this specific app, we'll replace local with remote
+      // Merge local absences to prevent them from disappearing 
+      // if the backend (Google Sheets) doesn't store them correctly yet
+      for (int i = 0; i < remoteEmployees.length; i++) {
+        final remote = remoteEmployees[i];
+        final localIdx = _employees.indexWhere((e) => e.reg == remote.reg);
+        
+        if (localIdx != -1) {
+          final local = _employees[localIdx];
+          
+          // Only preserve local if remote returned null/empty
+          final preserveAbs = remote.absence == null ? local.absence : remote.absence;
+          final preserveArch = remote.archivedAbsences.isEmpty ? local.archivedAbsences : remote.archivedAbsences;
+          
+          remoteEmployees[i] = remote.copyWith(
+            absence: preserveAbs,
+            archivedAbsences: preserveArch,
+          );
+        }
+      }
+      
       _employees = remoteEmployees;
       await _storage.saveEmployees(_employees);
     }
@@ -261,9 +319,15 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void toggleLanguage() {
+    _locale = _locale == 'ar' ? 'fr' : 'ar';
+    _storage.saveString('app_locale', _locale);
+    notifyListeners();
+  }
+
   // --- ABSENCE OPERATIONS ---
 
-  Future<void> addAbsence(String reg, Absence absence) async {
+  Future<void> addAbsence(String reg, Absence absence, {String author = ''}) async {
     final index = _employees.indexWhere((e) => e.reg == reg);
     if (index != -1) {
       final employee = _employees[index];
@@ -271,23 +335,32 @@ class SyncService extends ChangeNotifier {
       await _storage.saveEmployees(_employees);
       notifyListeners();
 
-      // إشعار فريد بـID خاص بالعامل
+      // إشعار محلي على نفس الجهاز
       final notifId = employee.reg.hashCode.abs() % 10000;
       await showNotification(
-        '📅 تسجيل غياب',
+        'تسجيل غياب',
         'تم تسجيل غياب لـ ${employee.name} · ${absence.type}',
         id: notifId,
       );
 
       if (_isOnline && !_isOfflineManual) {
         await _sheets.syncAll(_employees);
+        // ── Push collaborative notification to all other devices ──
+        await _sheets.pushNotification(
+          id: '${DateTime.now().millisecondsSinceEpoch}_$reg',
+          type: 'absence_added',
+          title: 'غياب جديد',
+          message: '${employee.name} · ${absence.type}${author.isNotEmpty ? ' ($author)' : ''}',
+          author: author,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        );
       } else {
         await _storage.addToSyncQueue({'action': 'sync_all'});
       }
     }
   }
 
-  Future<void> archiveAbsence(String reg) async {
+  Future<void> archiveAbsence(String reg, {String author = ''}) async {
     final index = _employees.indexWhere((e) => e.reg == reg);
     if (index != -1) {
       final employee = _employees[index];
@@ -299,6 +372,15 @@ class SyncService extends ChangeNotifier {
 
         if (_isOnline && !_isOfflineManual) {
           await _sheets.syncAll(_employees);
+          // ── Push collaborative notification ──
+          await _sheets.pushNotification(
+            id: '${DateTime.now().millisecondsSinceEpoch}_arch_$reg',
+            type: 'absence_archived',
+            title: 'أرشفة غياب',
+            message: 'تم أرشفة غياب ${employee.name}${author.isNotEmpty ? ' ($author)' : ''}',
+            author: author,
+            timestamp: DateTime.now().millisecondsSinceEpoch,
+          );
         } else {
           await _storage.addToSyncQueue({'action': 'sync_all'});
         }
@@ -306,15 +388,25 @@ class SyncService extends ChangeNotifier {
     }
   }
 
-  Future<void> removeAbsence(String reg) async {
+  Future<void> removeAbsence(String reg, {String author = ''}) async {
     final index = _employees.indexWhere((e) => e.reg == reg);
     if (index != -1) {
-      _employees[index] = _employees[index].copyWith(absence: null);
+      final employee = _employees[index];
+      _employees[index] = employee.copyWith(absence: null);
       await _storage.saveEmployees(_employees);
       notifyListeners();
 
       if (_isOnline && !_isOfflineManual) {
         await _sheets.syncAll(_employees);
+        // ── Push collaborative notification ──
+        await _sheets.pushNotification(
+          id: '${DateTime.now().millisecondsSinceEpoch}_rm_$reg',
+          type: 'absence_removed',
+          title: 'إلغاء غياب',
+          message: 'تم إلغاء غياب ${employee.name}${author.isNotEmpty ? ' ($author)' : ''}',
+          author: author,
+          timestamp: DateTime.now().millisecondsSinceEpoch,
+        );
       } else {
         await _storage.addToSyncQueue({'action': 'sync_all'});
       }

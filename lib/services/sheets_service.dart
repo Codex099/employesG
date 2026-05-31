@@ -66,6 +66,46 @@ class SheetsService {
     return _sendAction('delete_user', reg: username);
   }
 
+  // ─── Notifications ────────────────────────────────────────────────────────
+
+  /// Writes a new notification row to Google Sheets so every polling client
+  /// can detect it within ~5 seconds.
+  Future<bool> pushNotification({
+    required String id,
+    required String type,
+    required String title,
+    required String message,
+    required String author,
+    required int timestamp,
+  }) async {
+    return _sendAction('add_notification', data: {
+      'id': id,
+      'type': type,
+      'title': title,
+      'message': message,
+      'author': author,
+      'timestamp': timestamp,
+    });
+  }
+
+  /// Fetches notifications with timestamp > [since] from Google Sheets.
+  Future<List<Map<String, dynamic>>> fetchNotifications(int since) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$scriptUrl?action=get_notifications&since=$since'),
+      );
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+        if (decoded is List) {
+          return decoded.cast<Map<String, dynamic>>();
+        }
+      }
+    } catch (e) {
+      print('Error fetching notifications: $e');
+    }
+    return [];
+  }
+
   // ─── Generic ──────────────────────────────────────────────────────────────
 
   Future<bool> _sendAction(String action, {dynamic data, String? reg}) async {

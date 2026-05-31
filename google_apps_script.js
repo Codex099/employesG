@@ -10,8 +10,9 @@
  * ============================================================
  */
 
-const EMPLOYEES_SHEET = 'employees';
-const USERS_SHEET      = 'users';
+const EMPLOYEES_SHEET      = 'employees';
+const USERS_SHEET          = 'users';
+const NOTIFICATIONS_SHEET  = 'notifications';
 
 // ══════════════════════════════════════════════════════════════
 //  ENTRY POINTS
@@ -22,6 +23,11 @@ function doGet(e) {
 
   if (action === 'get_users') {
     return jsonResponse(getUsers());
+  }
+
+  if (action === 'get_notifications') {
+    const since = parseInt(e.parameter.since || '0', 10);
+    return jsonResponse(getNotifications(since));
   }
 
   // Default: return all employees
@@ -49,6 +55,9 @@ function doPost(e) {
     case 'update_user': return jsonResponse(updateUser(payload.data));
     case 'delete_user': return jsonResponse(deleteUser(payload.reg));
 
+    // ── Notifications ──
+    case 'add_notification': return jsonResponse(addNotification(payload.data));
+
     default:
       return jsonResponse({ error: 'Unknown action: ' + action });
   }
@@ -75,7 +84,21 @@ function getAllEmployees() {
 
 function addEmployee(data) {
   const sheet   = getOrCreateSheet(EMPLOYEES_SHEET);
-  const headers = getHeaders(sheet);
+  let headers = getHeaders(sheet);
+
+  // Auto-expand headers if data contains new keys
+  const newHeaders = Object.keys(data).filter(k => !headers.includes(k));
+  if (newHeaders.length > 0) {
+    if (headers.length === 0 || (headers.length === 1 && headers[0] === "")) {
+       sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+       headers = newHeaders;
+    } else {
+       sheet.getRange(1, headers.length + 1, 1, newHeaders.length).setValues([newHeaders]);
+       headers = headers.concat(newHeaders);
+    }
+    // Make headers bold
+    sheet.getRange(1, 1, 1, headers.length).setBackground('#1e3a5f').setFontColor('#ffffff').setFontWeight('bold');
+  }
 
   // Force String() on every value so "0123" is NEVER auto-converted to 123
   const row = headers.map(h => (data[h] !== undefined ? String(data[h]) : ''));
@@ -114,7 +137,25 @@ function deleteEmployee(reg) {
 
 function syncAll(employees) {
   const sheet   = getOrCreateSheet(EMPLOYEES_SHEET);
-  const headers = getHeaders(sheet);
+  let headers = getHeaders(sheet);
+
+  // Auto-expand headers if data contains new keys
+  const newHeadersSet = new Set();
+  employees.forEach(emp => Object.keys(emp).forEach(k => {
+    if (!headers.includes(k)) newHeadersSet.add(k);
+  }));
+  const newHeaders = Array.from(newHeadersSet);
+  
+  if (newHeaders.length > 0) {
+    if (headers.length === 0 || (headers.length === 1 && headers[0] === "")) {
+       sheet.getRange(1, 1, 1, newHeaders.length).setValues([newHeaders]);
+       headers = newHeaders;
+    } else {
+       sheet.getRange(1, headers.length + 1, 1, newHeaders.length).setValues([newHeaders]);
+       headers = headers.concat(newHeaders);
+    }
+    sheet.getRange(1, 1, 1, headers.length).setBackground('#1e3a5f').setFontColor('#ffffff').setFontWeight('bold');
+  }
 
   // Clear all rows except header
   const lastRow = sheet.getLastRow();
@@ -208,6 +249,84 @@ function deleteUser(username) {
     }
   }
   return { success: false, error: 'User not found' };
+}
+
+// ══════════════════════════════════════════════════════════════
+//  NOTIFICATIONS
+// ══════════════════════════════════════════════════════════════
+
+const NOTIF_HEADERS = ['id', 'type', 'title', 'message', 'author', 'timestamp'];
+const MAX_NOTIFICATIONS = 200; // Keep only last 200 rows to avoid sheet bloat
+
+function getOrCreateNotificationsSheet() {
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet   = ss.getSheetByName(NOTIFICATIONS_SHEET);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(NOTIFICATIONS_SHEET);
+    sheet.getRange(1, 1, 1, NOTIF_HEADERS.length).setValues([NOTIF_HEADERS]);
+    sheet.getRange(1, 1, 1, NOTIF_HEADERS.length)
+      .setBackground('#1e3a5f')
+      .setFontColor('#ffffff')
+      .setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+/**
+ * Adds a notification row.
+ * data: { id, type, title, message, author, timestamp }
+ */
+function addNotification(data) {
+  const sheet = getOrCreateNotificationsSheet();
+
+  const row = [
+    data.id        || String(Date.now()),
+    data.type      || 'info',
+    data.title     || '',
+    data.message   || '',
+    data.author    || '',
+    data.timestamp || Date.now(),
+  ];
+  sheet.appendRow(row);
+
+  // Trim old rows to keep sheet small
+  const lastRow = sheet.getLastRow();
+  if (lastRow > MAX_NOTIFICATIONS + 1) {
+    sheet.deleteRows(2, lastRow - MAX_NOTIFICATIONS - 1);
+  }
+
+  return { success: true };
+}
+
+/**
+ * Returns notifications with timestamp > since (ms).
+ * Returns an array of { id, type, title, message, author, timestamp }.
+ */
+function getNotifications(since) {
+  const sheet = getOrCreateNotificationsSheet();
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= 1) return [];
+
+  const data = sheet.getRange(2, 1, lastRow - 1, NOTIF_HEADERS.length).getValues();
+  const result = [];
+
+  for (const row of data) {
+    const ts = parseInt(String(row[5]), 10);
+    if (ts > since) {
+      result.push({
+        id:        String(row[0]),
+        type:      String(row[1]),
+        title:     String(row[2]),
+        message:   String(row[3]),
+        author:    String(row[4]),
+        timestamp: ts,
+      });
+    }
+  }
+
+  return result;
 }
 
 // ══════════════════════════════════════════════════════════════

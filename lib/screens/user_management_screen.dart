@@ -5,6 +5,7 @@ import '../models/app_user.dart';
 import '../models/user_role.dart';
 import '../services/auth_service.dart';
 import '../services/sync_service.dart';
+import '../utils/translations.dart';
 
 class UserManagementScreen extends StatefulWidget {
   const UserManagementScreen({super.key});
@@ -56,7 +57,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           backgroundColor: isDark ? const Color(0xFF131e35) : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text(
-            existing == null ? 'إضافة مستخدم جديد' : 'تعديل المستخدم',
+            existing == null ? 'new_user'.tr(context) : 'edit_user'.tr(context),
             style: GoogleFonts.almarai(fontWeight: FontWeight.w700,
                 color: isDark ? Colors.white : const Color(0xFF0f172a)),
             textAlign: TextAlign.right,
@@ -64,21 +65,19 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           content: SingleChildScrollView(
             child: Form(
               key: formKey,
-              child: Directionality(
-                textDirection: TextDirection.rtl,
-                child: Column(
+              child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     // Full name
-                    _dialogField(fullNameCtrl, 'الاسم الكامل',
+                    _dialogField(context, fullNameCtrl, 'full_name'.tr(context),
                         Icons.badge_outlined, isDark,
-                        validator: (v) => v!.trim().isEmpty ? 'مطلوب' : null),
+                        validator: (v) => v!.trim().isEmpty ? 'required'.tr(context) : null),
                     const SizedBox(height: 12),
                     // Username
-                    _dialogField(usernameCtrl, 'اسم المستخدم',
+                    _dialogField(context, usernameCtrl, 'username'.tr(context),
                         Icons.person_outline, isDark,
                         enabled: existing == null,
-                        validator: (v) => v!.trim().isEmpty ? 'مطلوب' : null),
+                        validator: (v) => v!.trim().isEmpty ? 'required'.tr(context) : null),
                     const SizedBox(height: 12),
                     // Password
                     TextFormField(
@@ -88,10 +87,11 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       style: GoogleFonts.almarai(
                           color: isDark ? Colors.white : const Color(0xFF0f172a)),
                       decoration: _fieldDecor(
+                        context: context,
                         isDark: isDark,
                         label: existing == null
-                            ? 'كلمة المرور'
-                            : 'كلمة المرور الجديدة (اتركها فارغة للإبقاء)',
+                            ? 'password'.tr(context)
+                            : 'password_empty_keep'.tr(context),
                         icon: Icons.lock_outline,
                         suffix: IconButton(
                           icon: Icon(
@@ -104,7 +104,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       ),
                       validator: (v) {
                         if (existing == null && (v == null || v.isEmpty)) {
-                          return 'مطلوب';
+                          return 'required'.tr(context);
                         }
                         return null;
                       },
@@ -113,7 +113,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     // Role selector
                     Align(
                       alignment: Alignment.centerRight,
-                      child: Text('الصلاحية',
+                      child: Text('role'.tr(context),
                           style: GoogleFonts.almarai(
                               fontSize: 13,
                               color: isDark ? Colors.white60 : Colors.black54)),
@@ -165,16 +165,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 ),
               ),
             ),
-          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('إلغاء',
+              child: Text('cancel'.tr(context),
                   style: GoogleFonts.almarai(color: Colors.grey)),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2563eb),
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10)),
@@ -210,7 +209,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   Navigator.of(context).pop(); 
                   _loadUsers();
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(ok ? 'تم الحفظ بنجاح ✓' : 'حدث خطأ',
+                    content: Text(ok ? 'saved_successfully'.tr(context) + ' ✓' : 'error_occurred'.tr(context),
                         style: GoogleFonts.almarai()),
                     backgroundColor:
                         ok ? const Color(0xFF10b981) : const Color(0xFFef4444),
@@ -220,7 +219,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   ));
                 }
               },
-              child: Text('حفظ', style: GoogleFonts.almarai()),
+              child: Text('save'.tr(context), style: GoogleFonts.almarai()),
             ),
           ],
         ),
@@ -235,12 +234,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       builder: (_) => AlertDialog(
         backgroundColor: isDark ? const Color(0xFF131e35) : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('حذف المستخدم',
+        title: Text('delete'.tr(context),
             style: GoogleFonts.almarai(
                 fontWeight: FontWeight.w700,
                 color: isDark ? Colors.white : const Color(0xFF0f172a)),
             textAlign: TextAlign.right),
-        content: Text('هل أنت متأكد من حذف "${user.fullName}"؟',
+        content: Text('confirm_delete'.tr(context) + ' "${user.fullName}"؟',
             style: GoogleFonts.almarai(
                 color: isDark ? Colors.white70 : Colors.black54),
             textAlign: TextAlign.right),
@@ -248,7 +247,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           TextButton(
               onPressed: () => Navigator.pop(context),
               child:
-                  Text('إلغاء', style: GoogleFonts.almarai(color: Colors.grey))),
+                  Text('cancel'.tr(context), style: GoogleFonts.almarai(color: Colors.grey))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFef4444),
@@ -264,7 +263,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 Navigator.pop(context);
                 _loadUsers();
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(ok ? 'تم الحذف ✓' : 'حدث خطأ',
+                  content: Text(ok ? 'deleted_successfully'.tr(context) + ' ✓' : 'error_occurred'.tr(context),
                       style: GoogleFonts.almarai()),
                   backgroundColor: ok
                       ? const Color(0xFF10b981)
@@ -275,7 +274,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 ));
               }
             },
-            child: Text('حذف', style: GoogleFonts.almarai()),
+            child: Text('delete'.tr(context), style: GoogleFonts.almarai()),
           ),
         ],
       ),
@@ -295,7 +294,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         appBar: AppBar(
           backgroundColor: isDark ? const Color(0xFF131e35) : Colors.white,
           elevation: 0,
-          title: Text('إدارة المستخدمين',
+          title: Text('user_management'.tr(context),
               style: GoogleFonts.almarai(
                   fontWeight: FontWeight.w800,
                   color: isDark ? Colors.white : const Color(0xFF0f172a))),
@@ -315,22 +314,22 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () => _showUserDialog(),
-          backgroundColor: const Color(0xFF2563eb),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
           icon: const Icon(Icons.person_add_rounded),
-          label: Text('إضافة مستخدم', style: GoogleFonts.almarai()),
+          label: Text('new_user'.tr(context), style: GoogleFonts.almarai()),
         ),
         body: _loading
-            ? const Center(
-                child: CircularProgressIndicator(color: Color(0xFF2563eb)))
+            ? Center(
+                child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary))
             : _users.isEmpty
                 ? Center(
-                    child: Text('لا يوجد مستخدمون',
+                    child: Text('no_users'.tr(context),
                         style: GoogleFonts.almarai(
                             color: isDark ? Colors.white38 : Colors.black26)))
                 : RefreshIndicator(
                     onRefresh: _loadUsers,
-                    color: const Color(0xFF2563eb),
+                    color: Theme.of(context).colorScheme.primary,
                     child: ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                       itemCount: _users.length,
@@ -338,7 +337,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         final user = _users[i];
                         final isSelf =
                             user.username == currentUser?.username;
-                        return _buildUserCard(user, isSelf, isDark);
+                        return _buildUserCard(context, user, isSelf, isDark);
                       },
                     ),
                   ),
@@ -346,7 +345,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
     );
   }
 
-  Widget _buildUserCard(AppUser user, bool isSelf, bool isDark) {
+  Widget _buildUserCard(BuildContext context, AppUser user, bool isSelf, bool isDark) {
     final color = _roleColor(user.role);
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -355,7 +354,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isSelf
-              ? const Color(0xFF2563eb).withOpacity(0.4)
+              ? Theme.of(context).colorScheme.primary.withOpacity(0.4)
               : (isDark
                   ? Colors.white.withOpacity(0.06)
                   : Colors.black.withOpacity(0.05)),
@@ -400,13 +399,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF2563eb).withOpacity(0.1),
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Text('أنت',
+                child: Text('you'.tr(context),
                     style: GoogleFonts.almarai(
                         fontSize: 11,
-                        color: const Color(0xFF2563eb),
+                        color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.w600)),
               ),
           ],
@@ -447,10 +446,10 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   PopupMenuItem(
                     value: 'edit',
                     child: Row(children: [
-                      const Icon(Icons.edit_outlined,
-                          size: 18, color: Color(0xFF2563eb)),
+                      Icon(Icons.edit_outlined,
+                          size: 18, color: Theme.of(context).colorScheme.primary),
                       const SizedBox(width: 8),
-                      Text('تعديل',
+                      Text('edit'.tr(context),
                           style: GoogleFonts.almarai(
                               color: isDark
                                   ? Colors.white
@@ -463,7 +462,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                       const Icon(Icons.delete_outline_rounded,
                           size: 18, color: Color(0xFFef4444)),
                       const SizedBox(width: 8),
-                      Text('حذف',
+                      Text('delete'.tr(context),
                           style: GoogleFonts.almarai(
                               color: const Color(0xFFef4444))),
                     ]),
@@ -479,6 +478,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   Widget _dialogField(
+    BuildContext context,
     TextEditingController ctrl,
     String label,
     IconData icon,
@@ -491,12 +491,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       enabled: enabled,
       style: GoogleFonts.almarai(
           color: isDark ? Colors.white : const Color(0xFF0f172a)),
-      decoration: _fieldDecor(isDark: isDark, label: label, icon: icon),
+      decoration: _fieldDecor(context: context, isDark: isDark, label: label, icon: icon),
       validator: validator,
     );
   }
 
   InputDecoration _fieldDecor({
+    required BuildContext context,
     required bool isDark,
     required String label,
     required IconData icon,
@@ -507,7 +508,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       labelStyle: GoogleFonts.almarai(
           color: isDark ? Colors.white54 : const Color(0xFF64748b),
           fontSize: 13),
-      prefixIcon: Icon(icon, color: const Color(0xFF2563eb), size: 18),
+      prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary, size: 18),
       suffixIcon: suffix,
       filled: true,
       fillColor:
@@ -523,7 +524,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
       focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide:
-              const BorderSide(color: Color(0xFF2563eb), width: 1.5)),
+              BorderSide(color: Theme.of(context).colorScheme.primary, width: 1.5)),
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     );

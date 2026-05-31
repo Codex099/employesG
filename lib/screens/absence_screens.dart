@@ -5,6 +5,9 @@ import 'package:flutter/services.dart';
 import '../services/sync_service.dart';
 import '../models/employee.dart';
 import '../models/absence.dart';
+import '../services/auth_service.dart';
+import '../models/user_role.dart';
+import '../utils/translations.dart';
 
 // Helper chip widget for details modal
 Widget _buildDetailChip(IconData icon, String label, Color color) {
@@ -30,239 +33,341 @@ Widget _buildDetailChip(IconData icon, String label, Color color) {
   );
 }
 
-// Modal bottom sheet to display complete employee information (Observation/Notes, phone, details, etc.)
+// Modal bottom sheet — employee info + ALL absences (current + archived)
 void _showEmployeeDetails(BuildContext context, Employee employee) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
+
+  // Build a unified absence list: current first, then archived reversed
+  final List<Map<String, dynamic>> allAbsences = [];
+  if (employee.absence != null) {
+    allAbsences.add({'absence': employee.absence!, 'isCurrent': true});
+  }
+  for (final ab in employee.archivedAbsences.reversed) {
+    allAbsences.add({'absence': ab, 'isCurrent': false});
+  }
+
+  Color _typeColor(String type) {
+    switch (type) {
+      case 'نقاهة':       return Colors.blue;
+      case 'ع ع ش':      return Colors.red;
+      case 'إجازة':       return Colors.green;
+      case 'رخصة غياب':  return Colors.purple;
+      default:            return Colors.orange;
+    }
+  }
+
+  Icon _typeIcon(String type) {
+    switch (type) {
+      case 'نقاهة':       return const Icon(Icons.sick_outlined,        size: 14, color: Colors.blue);
+      case 'ع ع ش':      return const Icon(Icons.block_outlined,        size: 14, color: Colors.red);
+      case 'إجازة':       return const Icon(Icons.beach_access_outlined, size: 14, color: Colors.green);
+      case 'رخصة غياب':  return const Icon(Icons.description_outlined,  size: 14, color: Colors.purple);
+      default:            return const Icon(Icons.calendar_today_outlined, size: 14, color: Colors.orange);
+    }
+  }
+
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
     builder: (context) {
-      return Directionality(
-        textDirection: TextDirection.rtl,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 14,
-            bottom: MediaQuery.of(context).padding.bottom + 20,
-          ),
-          child: SingleChildScrollView(
+      return DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.4,
+        maxChildSize: 0.95,
+        builder: (_, scrollCtrl) {
+          return Container(
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(10),
+                // ── Handle ──
+                Padding(
+                  padding: const EdgeInsets.only(top: 12, bottom: 8),
+                  child: Center(
+                    child: Container(
+                      width: 40, height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2563eb).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Center(
-                        child: Text(
-                          employee.name.isNotEmpty ? employee.name[0].toUpperCase() : '?',
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF2563eb),
+
+                // ── Header: avatar + name + absence count ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 52, height: 52,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563eb).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Center(
+                          child: Text(
+                            employee.name.isNotEmpty ? employee.name[0].toUpperCase() : '?',
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF2563eb)),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            employee.name,
-                            style: const TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(employee.name,
+                              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(employee.reg,
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold,
+                                  color: Theme.of(context).colorScheme.primary)),
                             ),
+                          ],
+                        ),
+                      ),
+                      // Total absence count badge
+                      if (allAbsences.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.withOpacity(0.25)),
                           ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('${allAbsences.length}',
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red)),
+                              Text('absence'.tr(context),
+                                style: const TextStyle(fontSize: 10, color: Colors.red)),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                // ── Personal info chips ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Wrap(
+                    spacing: 8, runSpacing: 6,
+                    children: [
+                      _buildDetailChip(Icons.phone_outlined,          employee.phone,      Colors.green),
+                      _buildDetailChip(Icons.location_on_outlined,    employee.address,    Colors.red),
+                      _buildDetailChip(Icons.work_outline,            employee.workplace,  Colors.blueGrey),
+                      _buildDetailChip(Icons.family_restroom_outlined, employee.status,    Colors.orange),
+                      if (employee.children != null)
+                        _buildDetailChip(Icons.child_care_outlined,
+                          'children_count'.tr(context) + ': ${employee.children}', Colors.purple),
+                      if (employee.blood.isNotEmpty)
+                        _buildDetailChip(Icons.bloodtype_outlined,
+                          'blood_type'.tr(context) + ': ${employee.blood}', Colors.redAccent),
+                    ],
+                  ),
+                ),
+
+                if (employee.notes.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFfefce8),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: isDark ? Colors.transparent : const Color(0xFFfef08a)),
+                      ),
+                      child: Text(employee.notes,
+                        style: TextStyle(fontSize: 12,
+                          color: isDark ? Colors.grey[300] : const Color(0xFF854d0e))),
+                    ),
+                  ),
+                ],
+
+                const Divider(height: 24),
+
+                // ── Call buttons ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: () async {
+                            final url = Uri.parse('tel:${employee.phone}');
+                            if (await canLaunchUrl(url)) await launchUrl(url);
+                          },
+                          icon: const Icon(Icons.call, size: 18),
+                          label: Text('call_phone'.tr(context),
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                          style: TextButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextButton.icon(
+                          onPressed: () async {
+                            String phone = employee.phone.replaceAll(' ', '');
+                            if (phone.startsWith('0')) phone = '213${phone.substring(1)}';
+                            final url = Uri.parse('https://wa.me/$phone');
+                            if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
+                          },
+                          icon: const Icon(Icons.message, size: 18),
+                          label: Text('call_whatsapp'.tr(context),
+                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                          style: TextButton.styleFrom(
+                            backgroundColor: const Color(0xFF25D366),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const Divider(height: 24),
+
+                // ── Section title: all absences ──
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.history_outlined, size: 18, color: Colors.orange),
+                      const SizedBox(width: 8),
+                      Text('absence_history'.tr(context),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.orange)),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                // ── Absence list ──
+                Expanded(
+                  child: allAbsences.isEmpty
+                    ? Center(
+                        child: Text('no_absence_history'.tr(context),
+                          style: const TextStyle(color: Colors.grey)))
+                    : ListView.builder(
+                        controller: scrollCtrl,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        itemCount: allAbsences.length,
+                        itemBuilder: (ctx, i) {
+                          final Absence ab     = allAbsences[i]['absence'];
+                          final bool isCurrent = allAbsences[i]['isCurrent'];
+                          final color          = _typeColor(ab.type);
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(14),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF2563eb).withOpacity(0.08),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              employee.reg,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF2563eb),
+                              color: isCurrent
+                                ? color.withOpacity(0.06)
+                                : (isDark ? Colors.white.withOpacity(0.04) : Colors.grey.withOpacity(0.04)),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: isCurrent ? color.withOpacity(0.35) : Colors.grey.withOpacity(0.15),
+                                width: isCurrent ? 1.4 : 1,
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const Divider(height: 30),
-                const Text(
-                  'المعلومات الشخصية',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2563eb),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildDetailChip(Icons.phone_outlined, employee.phone, Colors.green),
-                    _buildDetailChip(Icons.location_on_outlined, employee.address, Colors.red),
-                    _buildDetailChip(Icons.work_outline, employee.workplace, Colors.blueGrey),
-                    _buildDetailChip(Icons.family_restroom_outlined, employee.status, Colors.orange),
-                    if (employee.children != null)
-                      _buildDetailChip(Icons.child_care_outlined, 'الأولاد: ${employee.children}', Colors.purple),
-                    if (employee.blood.isNotEmpty)
-                      _buildDetailChip(Icons.bloodtype_outlined, 'فصيلة الدم: ${employee.blood}', Colors.redAccent),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                if (employee.notes.isNotEmpty) ...[
-                  const Text(
-                    'الملاحظات (Observation)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF2563eb),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFfefce8),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isDark ? Colors.transparent : const Color(0xFFfef08a)),
-                    ),
-                    child: Text(
-                      employee.notes,
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark ? Colors.grey[300] : const Color(0xFF854d0e),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                if (employee.absence != null) ...[
-                  const Text(
-                    'تفاصيل الغياب الحالي',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.orange,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.orange.withOpacity(0.2)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('نوع الغياب: ${employee.absence!.type}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        const SizedBox(height: 6),
-                        Text('تاريخ تسجيل الغياب: ${employee.absence!.date}', style: const TextStyle(fontSize: 12)),
-                        if (employee.absence!.startDate != null)
-                          Text('تاريخ البدء: ${employee.absence!.startDate}', style: const TextStyle(fontSize: 12)),
-                        if (employee.absence!.returnDate != null)
-                          Text('تاريخ الالتحاق: ${employee.absence!.returnDate}', style: const TextStyle(fontSize: 12)),
-                        if (employee.absence!.reason != null && employee.absence!.reason!.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Text('ملاحظة الغياب: ${employee.absence!.reason}', style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton.icon(
-                        onPressed: () async {
-                          final url = Uri.parse('tel:${employee.phone}');
-                          if (await canLaunchUrl(url)) {
-                            await launchUrl(url);
-                          }
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    _typeIcon(ab.type),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: color.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(ab.type,
+                                        style: TextStyle(fontSize: 12,
+                                          fontWeight: FontWeight.bold, color: color)),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    if (isCurrent)
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text('current'.tr(ctx),
+                                          style: const TextStyle(fontSize: 10,
+                                            fontWeight: FontWeight.bold, color: Colors.green)),
+                                      ),
+                                    const Spacer(),
+                                    Text('${i + 1}',
+                                      style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text('absence_date'.tr(ctx) + ': ${ab.date}',
+                                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                if (ab.startDate != null || ab.returnDate != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      'from'.tr(ctx) + ' ${ab.startDate ?? "--"}  →  ${ab.returnDate ?? "--"}',
+                                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                  ),
+                                if (ab.reason != null && ab.reason!.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(Icons.note_alt_outlined, size: 13, color: color),
+                                      const SizedBox(width: 4),
+                                      Expanded(
+                                        child: Text(ab.reason!,
+                                          style: TextStyle(fontSize: 12, color: color)),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
                         },
-                        icon: const Icon(Icons.call, size: 18),
-                        label: const Text('اتصال مباشر', style: TextStyle(fontWeight: FontWeight.bold)),
-                        style: TextButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextButton.icon(
-                        onPressed: () async {
-                          String phone = employee.phone.replaceAll(' ', '');
-                          if (phone.startsWith('0')) {
-                            phone = '213${phone.substring(1)}';
-                          }
-                          final url = Uri.parse('https://wa.me/$phone');
-                          if (await canLaunchUrl(url)) {
-                            await launchUrl(url, mode: LaunchMode.externalApplication);
-                          }
-                        },
-                        icon: const Icon(Icons.message, size: 18),
-                        label: const Text('واتساب', style: TextStyle(fontWeight: FontWeight.bold)),
-                        style: TextButton.styleFrom(
-                          backgroundColor: const Color(0xFF25D366),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
+
+                SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
               ],
             ),
-          ),
-        ),
+          );
+        },
       );
     },
   );
 }
+
 
 // ─────────────────────────────────────────
 //  قائمة الغيابات الحالية (مع اختيار متعدد وبحث)
@@ -306,24 +411,21 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
     final syncService = context.read<SyncService>();
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('تأكيد الأرشفة الجماعية'),
-          content: Text('هل تريد أرشفة غياب ${_selectedRegs.length} عامل(ين)؟'),
+      builder: (ctx) => AlertDialog(
+          title: Text('archive_selected'.tr(context)),
+          content: Text('archive_confirm'.tr(context) + ' ' + '${_selectedRegs.length}' + ' ?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء'),
+              child: Text('cancel'.tr(context)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: TextButton.styleFrom(foregroundColor: Colors.blueGrey),
-              child: const Text('أرشفة الكل'),
+              child: Text('archive_all'.tr(context)),
             ),
           ],
         ),
-      ),
     );
 
     if (confirm == true) {
@@ -334,7 +436,7 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
       _clearSelection();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تمت أرشفة الغيابات المحددة')),
+          SnackBar(content: Text('archived_success'.tr(context))),
         );
       }
     }
@@ -344,24 +446,21 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
     final syncService = context.read<SyncService>();
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (ctx) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('تأكيد الحذف الجماعي'),
-          content: Text('هل تريد حذف غياب ${_selectedRegs.length} عامل(ين)؟'),
+      builder: (ctx) => AlertDialog(
+          title: Text('delete_selected'.tr(context)),
+          content: Text('delete_confirm'.tr(context) + ' ' + '${_selectedRegs.length}' + ' ?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء'),
+              child: Text('cancel'.tr(context)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('حذف الكل'),
+              child: Text('delete_all'.tr(context)),
             ),
           ],
         ),
-      ),
     );
 
     if (confirm == true) {
@@ -372,7 +471,7 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
       _clearSelection();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم حذف الغيابات المحددة')),
+          SnackBar(content: Text('deleted_success'.tr(context))),
         );
       }
     }
@@ -382,6 +481,7 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
   Widget build(BuildContext context) {
     return Consumer<SyncService>(
       builder: (context, syncService, _) {
+        final role = context.read<AuthService>().currentRole;
         final absentEmployees =
             syncService.employees.where((e) => e.absence != null).toList();
 
@@ -399,12 +499,10 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
 
         final isSelectionMode = _selectedRegs.isNotEmpty;
 
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: Scaffold(
+        return Scaffold(
             appBar: isSelectionMode
                 ? AppBar(
-                    title: Text('تم تحديد ${_selectedRegs.length}'),
+                    title: Text('selected_count'.tr(context) + ' ${_selectedRegs.length}'),
                     backgroundColor: const Color(0xFF1e3a5f),
                     foregroundColor: Colors.white,
                     leading: IconButton(
@@ -414,7 +512,7 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
                     actions: [
                       IconButton(
                         icon: const Icon(Icons.select_all),
-                        tooltip: 'تحديد الكل',
+                        tooltip: 'select_all'.tr(context),
                         onPressed: () {
                           setState(() {
                             final visibleRegs = filtered.map((e) => e.reg).toList();
@@ -426,28 +524,29 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
                           });
                         },
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.archive_outlined),
-                        tooltip: 'أرشفة المحدد',
-                        onPressed: () => _bulkArchive(context, filtered),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        tooltip: 'حذف المحدد',
-                        onPressed: () => _bulkDelete(context),
-                      ),
+                      if (role.canManageAbsence) ...[
+                        IconButton(
+                          icon: const Icon(Icons.archive_outlined),
+                          tooltip: 'archive_selected'.tr(context),
+                          onPressed: () => _bulkArchive(context, filtered),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          tooltip: 'delete_selected'.tr(context),
+                          onPressed: () => _bulkDelete(context),
+                        ),
+                      ],
                     ],
                   )
                 : AppBar(
-                    title: const Text('قائمة الغيابات'),
-                    backgroundColor: const Color(0xFF2563eb),
+                    title: Text('absences_list'.tr(context)),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                   ),
             body: Column(
               children: [
                 // ── شريط البحث ──
-                if (absentEmployees.isNotEmpty)
-                  Padding(
+                Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     child: Container(
                       decoration: BoxDecoration(
@@ -465,7 +564,7 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
                         controller: _searchCtrl,
                         onChanged: (v) => setState(() => _searchQuery = v),
                         decoration: InputDecoration(
-                          hintText: 'ابحث بالاسم، رقم التسجيل، أو نوع الغياب...',
+                          hintText: 'search_absence_hint'.tr(context),
                           prefixIcon: const Icon(Icons.search, color: Colors.grey),
                           suffixIcon: _searchQuery.isNotEmpty
                               ? IconButton(
@@ -483,24 +582,36 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
                     ),
                   ),
 
+                // ── عدد النتائج ──
+                Padding(
+                  padding: const EdgeInsets.only(right: 18, bottom: 4),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '${filtered.length} ' + 'absence_records'.tr(context),
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ),
+                ),
+
                 // ── القائمة ──
                 Expanded(
                   child: absentEmployees.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('✅', style: TextStyle(fontSize: 52)),
+                              
                               SizedBox(height: 12),
-                              Text('لا توجد غيابات مسجلة',
-                                  style: TextStyle(color: Colors.grey, fontSize: 16)),
+                              Text('no_absences'.tr(context),
+                                  style: const TextStyle(color: Colors.grey, fontSize: 16)),
                             ],
                           ),
                         )
                       : filtered.isEmpty
-                          ? const Center(
-                              child: Text('لا توجد نتائج بحث مطابقة',
-                                  style: TextStyle(color: Colors.grey)),
+                          ? Center(
+                              child: Text('no_match'.tr(context),
+                                  style: const TextStyle(color: Colors.grey)),
                             )
                           : ListView.builder(
                               padding: const EdgeInsets.all(16),
@@ -532,7 +643,6 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
                             ),
                 ),
               ],
-            ),
           ),
         );
       },
@@ -589,7 +699,7 @@ class _AbsenceCard extends StatelessWidget {
                   if (isSelectionMode) ...[
                     Icon(
                       isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-                      color: const Color(0xFF2563eb),
+                      color: Theme.of(context).colorScheme.primary,
                       size: 22,
                     ),
                     const SizedBox(width: 10),
@@ -616,11 +726,11 @@ class _AbsenceCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               // ── التواريخ ──
-              Text('تاريخ التسجيل: ${ab.date}',
+              Text('absence_date'.tr(context) + ': ${ab.date}',
                   style: const TextStyle(color: Colors.grey, fontSize: 12)),
               const SizedBox(height: 4),
               Text(
-                'البدء: ${ab.startDate ?? "--"}   ·   التحاق: ${ab.returnDate ?? "--"}',
+                'start_date'.tr(context) + ': ${ab.startDate ?? "--"}   ·   ' + 'return_date'.tr(context) + ': ${ab.returnDate ?? "--"}',
                 style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
               // ── الملاحظة ── (Observation)
@@ -637,8 +747,8 @@ class _AbsenceCard extends StatelessWidget {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.note_alt_outlined,
-                          size: 15, color: Color(0xFF2563eb)),
+                      Icon(Icons.note_alt_outlined,
+                          size: 15, color: Theme.of(context).colorScheme.primary),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(ab.reason!,
@@ -650,8 +760,8 @@ class _AbsenceCard extends StatelessWidget {
                 ),
               ],
               
-              // ── الأزرار (تظهر فقط في حالة عدم التحديد الجماعي) ──
-              if (!isSelectionMode) ...[
+              // ── الأزرار (تظهر فقط في حالة عدم التحديد الجماعي ومسموح له) ──
+              if (!isSelectionMode && context.read<AuthService>().currentRole.canManageAbsence) ...[
                 const SizedBox(height: 14),
                 Row(
                   children: [
@@ -659,7 +769,7 @@ class _AbsenceCard extends StatelessWidget {
                       child: ElevatedButton.icon(
                         onPressed: () => syncService.archiveAbsence(employee.reg),
                         icon: const Icon(Icons.archive_outlined, size: 18),
-                        label: const Text('أرشفة'),
+                        label: Text('archive_selected'.tr(context)),
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.blueGrey,
                             foregroundColor: Colors.white,
@@ -673,34 +783,31 @@ class _AbsenceCard extends StatelessWidget {
                         onPressed: () async {
                           final ok = await showDialog<bool>(
                             context: context,
-                            builder: (_) => Directionality(
-                              textDirection: TextDirection.rtl,
-                              child: AlertDialog(
-                                title: const Text('تأكيد الحذف'),
+                            builder: (_) => AlertDialog(
+                                title: Text('delete'.tr(context)),
                                 content:
-                                    Text('حذف غياب ${employee.name}؟'),
+                                    Text('confirm_delete'.tr(context) + ' ${employee.name} ?'),
                                 actions: [
                                   TextButton(
                                       onPressed: () =>
                                           Navigator.pop(context, false),
-                                      child: const Text('إلغاء')),
+                                      child: Text('cancel'.tr(context))),
                                   TextButton(
                                     onPressed: () =>
                                         Navigator.pop(context, true),
                                     style: TextButton.styleFrom(
                                         foregroundColor: Colors.red),
-                                    child: const Text('حذف'),
+                                    child: Text('delete'.tr(context)),
                                   ),
                                 ],
                               ),
-                            ),
                           );
                           if (ok == true && context.mounted) {
                             syncService.removeAbsence(employee.reg);
                           }
                         },
                         icon: const Icon(Icons.delete_outline, size: 18),
-                        label: const Text('حذف'),
+                        label: Text('delete'.tr(context)),
                         style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.red.withOpacity(0.08),
                             foregroundColor: Colors.red,
@@ -742,11 +849,9 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
-          title: const Text('الأرشيف'),
+          title: Text('archive_menu'.tr(context)),
           backgroundColor: Colors.blueGrey[700],
           foregroundColor: Colors.white,
         ),
@@ -801,7 +906,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                       controller: _searchCtrl,
                       onChanged: (v) => setState(() => _query = v),
                       decoration: InputDecoration(
-                        hintText: 'ابحث بالاسم أو نوع الغياب...',
+                        hintText: 'search_absence_hint'.tr(context),
                         prefixIcon:
                             const Icon(Icons.search, color: Colors.grey),
                         suffixIcon: _query.isNotEmpty
@@ -829,7 +934,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                     child: Align(
                       alignment: Alignment.centerRight,
                       child: Text(
-                        '${filtered.length} سجل',
+                        '${filtered.length} ' + 'absence_records'.tr(context),
                         style: const TextStyle(
                             color: Colors.grey, fontSize: 12),
                       ),
@@ -839,21 +944,21 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                 // ── القائمة ──
                 Expanded(
                   child: allArchived.isEmpty
-                      ? const Center(
+                      ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('🗃️', style: TextStyle(fontSize: 52)),
-                              SizedBox(height: 12),
-                              Text('الأرشيف فارغ',
-                                  style: TextStyle(
+                              const Text('🗃️', style: TextStyle(fontSize: 52)),
+                              const SizedBox(height: 12),
+                              Text('empty_archive'.tr(context),
+                                  style: const TextStyle(
                                       color: Colors.grey, fontSize: 16)),
                             ],
                           ),
                         )
                       : filtered.isEmpty
-                          ? const Center(
-                              child: Text('لا توجد نتائج',
+                          ? Center(
+                              child: Text('no_match'.tr(context),
                                   style: TextStyle(color: Colors.grey)))
                           : ListView.builder(
                               padding: const EdgeInsets.symmetric(
@@ -914,7 +1019,7 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                                                 ),
                                                 const SizedBox(height: 6),
                                                 Text(
-                                                  'من ${ab.startDate ?? "--"} → ${ab.returnDate ?? "--"}',
+                                                  'from'.tr(context) + ' ${ab.startDate ?? "--"} → ${ab.returnDate ?? "--"}',
                                                   style: const TextStyle(
                                                       color: Colors.grey,
                                                       fontSize: 12),
@@ -946,14 +1051,15 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                                               ],
                                             ),
                                           ),
-                                          IconButton(
-                                            icon: const Icon(
-                                                Icons.delete_outline,
-                                                color: Colors.red),
-                                            onPressed: () =>
-                                                syncService.deleteFromArchive(
-                                                    e.reg, archIdx),
-                                          ),
+                                          if (context.read<AuthService>().currentRole.canManageAbsence)
+                                            IconButton(
+                                              icon: const Icon(
+                                                  Icons.delete_outline,
+                                                  color: Colors.red),
+                                              onPressed: () =>
+                                                  syncService.deleteFromArchive(
+                                                      e.reg, archIdx),
+                                            ),
                                         ],
                                       ),
                                     ),
@@ -966,7 +1072,6 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
             );
           },
         ),
-      ),
     );
   }
 }

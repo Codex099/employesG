@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import 'home_screen.dart';
 import 'login_screen.dart';
+import '../utils/translations.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -186,9 +187,9 @@ class _SplashScreenState extends State<SplashScreen>
                     position: _textSlide,
                     child: Column(
                       children: [
-                        const Text(
-                          'إدارة العمال',
-                          style: TextStyle(
+                        Text(
+                          'labor_management'.tr(context),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 32,
                             fontWeight: FontWeight.w900,
@@ -206,9 +207,9 @@ class _SplashScreenState extends State<SplashScreen>
                               color: Colors.white.withOpacity(0.3),
                             ),
                           ),
-                          child: const Text(
-                            'نظام متابعة القوى العاملة',
-                            style: TextStyle(
+                          child: Text(
+                            'labor_system'.tr(context),
+                            style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
@@ -242,7 +243,7 @@ class _SplashScreenState extends State<SplashScreen>
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'جاري التحميل...',
+                    'syncing'.tr(context),
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.6),
                       fontSize: 13,

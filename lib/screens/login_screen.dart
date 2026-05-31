@@ -5,6 +5,7 @@ import '../services/auth_service.dart';
 import '../services/sync_service.dart';
 import 'home_screen.dart';
 import '../main.dart';
+import '../utils/translations.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -76,8 +77,8 @@ class _LoginScreenState extends State<LoginScreen>
               gradient: LinearGradient(
                 begin: Alignment.topRight,
                 end: Alignment.bottomLeft,
-                colors: [kPrimaryDark, Color(0xFF0E7490), Color(0xFF1D91C0)],
-                stops: [0.0, 0.45, 1.0],
+                colors: [kPrimaryDark, kPrimary, kPrimaryLight],
+                stops: [0.0, 0.5, 1.0],
               ),
             ),
           ),
@@ -133,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen>
 
                         // ── Title ──
                         Text(
-                          'نظام إدارة العمال',
+                          'app_title'.tr(context),
                           style: GoogleFonts.almarai(
                             fontSize: 26,
                             fontWeight: FontWeight.w800,
@@ -143,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'تسجيل الدخول للمتابعة',
+                          'login_title'.tr(context),
                           style: GoogleFonts.almarai(
                             fontSize: 14,
                             color: Colors.white.withOpacity(0.75),
@@ -176,25 +177,23 @@ class _LoginScreenState extends State<LoginScreen>
                           ),
                           child: Form(
                             key: _formKey,
-                            child: Directionality(
-                              textDirection: TextDirection.rtl,
-                              child: Column(
+                            child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
                                   _buildField(
                                     controller: _usernameCtrl,
-                                    label: 'اسم المستخدم',
+                                    label: 'username'.tr(context),
                                     icon: Icons.person_outline_rounded,
                                     isDark: isDark,
                                     validator: (v) =>
                                         (v == null || v.trim().isEmpty)
-                                            ? 'أدخل اسم المستخدم'
+                                            ? 'username_hint'.tr(context)
                                             : null,
                                   ),
                                   const SizedBox(height: 16),
                                   _buildField(
                                     controller: _passwordCtrl,
-                                    label: 'كلمة المرور',
+                                    label: 'password'.tr(context),
                                     icon: Icons.lock_outline_rounded,
                                     isDark: isDark,
                                     obscure: _obscure,
@@ -213,7 +212,7 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                     validator: (v) =>
                                         (v == null || v.isEmpty)
-                                            ? 'أدخل كلمة المرور'
+                                            ? 'password_hint'.tr(context)
                                             : null,
                                   ),
 
@@ -290,7 +289,7 @@ class _LoginScreenState extends State<LoginScreen>
                                               ),
                                             )
                                           : Text(
-                                              'تسجيل الدخول',
+                                              'login_btn'.tr(context),
                                               style: GoogleFonts.almarai(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w700,
@@ -302,7 +301,6 @@ class _LoginScreenState extends State<LoginScreen>
                               ),
                             ),
                           ),
-                        ),
                         const SizedBox(height: 32),
                       ],
                     ),

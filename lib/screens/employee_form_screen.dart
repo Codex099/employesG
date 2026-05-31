@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/employee.dart';
 import '../services/sync_service.dart';
+import '../utils/translations.dart';
 
 class EmployeeFormScreen extends StatefulWidget {
   final Employee? employee;
@@ -47,14 +48,13 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
   Widget build(BuildContext context) {
     final isEdit = widget.employee != null;
 
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
-          title: Text(isEdit ? 'تعديل بيانات العامل' : 'إضافة عامل جديد'),
-          backgroundColor: const Color(0xFF2563eb),
+          title: Text(isEdit ? 'edit_employee'.tr(context) : 'new_employee'.tr(context)),
+          backgroundColor: Theme.of(context).colorScheme.primary,
           foregroundColor: Colors.white,
           centerTitle: true,
+          elevation: 0,
         ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -63,33 +63,33 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildTextField('الاسم الكامل *', _nameController, Icons.person, (v) => v!.isEmpty ? 'الرجاء إدخال الاسم' : null),
+                _buildTextField('full_name'.tr(context) + ' *', _nameController, Icons.person, (v) => v!.isEmpty ? 'required'.tr(context) : null),
                 const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
-                      child: _buildTextField('رقم التسجيل *', _regController, Icons.badge, (v) => v!.isEmpty ? 'الرجاء إدخال الرقم' : null, keyboardType: TextInputType.phone),
+                      child: _buildTextField('reg_number'.tr(context), _regController, Icons.badge, (v) => v!.isEmpty ? 'required'.tr(context) : null, keyboardType: TextInputType.phone),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
-                      child: _buildDropdown('زمرة الدم', _bloodOptions, _selectedBlood, (v) => setState(() => _selectedBlood = v!)),
+                      child: _buildDropdown('blood_type'.tr(context), _bloodOptions, _selectedBlood, (v) => setState(() => _selectedBlood = v!)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                _buildTextField('رقم الهاتف', _phoneController, Icons.phone, null, keyboardType: TextInputType.phone),
+                _buildTextField('phone_number'.tr(context), _phoneController, Icons.phone, null, keyboardType: TextInputType.phone),
                 const SizedBox(height: 16),
-                _buildTextField('عنوان السكن', _addressController, Icons.home, null),
+                _buildTextField('address'.tr(context), _addressController, Icons.home, null),
                 const SizedBox(height: 16),
-                _buildTextField('مكان العمل', _workplaceController, Icons.work, null),
+                _buildTextField('workplace'.tr(context), _workplaceController, Icons.work, null),
                 const SizedBox(height: 16),
-                _buildDropdown('الحالة الاجتماعية', _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v!)),
+                _buildDropdown('family_status'.tr(context), _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v!)),
                 if (_selectedStatus != 'أعزب' && _selectedStatus.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   _buildChildrenStepper(),
                 ],
                 const SizedBox(height: 16),
-                _buildTextField('ملاحظات', _notesController, Icons.note, null, maxLines: 3),
+                _buildTextField('observations'.tr(context), _notesController, Icons.note, null, maxLines: 3),
                 const SizedBox(height: 32),
                 SizedBox(
                   width: double.infinity,
@@ -103,14 +103,13 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
                       elevation: 5,
                     ),
                     child: Text(
-                      isEdit ? 'حفظ التعديلات' : 'إضافة العامل',
+                      isEdit ? 'save'.tr(context) : 'new_employee'.tr(context),
                       style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
               ],
             ),
-          ),
         ),
       ),
     );
@@ -128,9 +127,9 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
           keyboardType: keyboardType,
           maxLines: maxLines,
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: const Color(0xFF2563eb)),
+            prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.primary),
             filled: true,
-            fillColor: Colors.grey.withOpacity(0.05),
+            fillColor: Theme.of(context).colorScheme.primary.withOpacity(0.05),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           ),
@@ -148,13 +147,13 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: Colors.grey.withOpacity(0.05),
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
             borderRadius: BorderRadius.circular(14),
           ),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: current.isEmpty ? null : current,
-              hint: const Text('اختر'),
+              hint: Text('select'.tr(context)),
               isExpanded: true,
               items: options.map((String value) {
                 return DropdownMenuItem<String>(
@@ -174,7 +173,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('عدد الأولاد', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+        Text('children_count'.tr(context), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(4),
@@ -185,12 +184,12 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              IconButton(onPressed: () => setState(() => _childrenCount++), icon: const Icon(Icons.add_circle_outline, color: Colors.green)),
+              IconButton(onPressed: () => setState(() => _childrenCount++), icon: Icon(Icons.add_circle_outline, color: Theme.of(context).colorScheme.primary)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text('$_childrenCount', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
-              IconButton(onPressed: () => setState(() => _childrenCount = _childrenCount > 0 ? _childrenCount - 1 : 0), icon: const Icon(Icons.remove_circle_outline, color: Colors.red)),
+              IconButton(onPressed: () => setState(() => _childrenCount = _childrenCount > 0 ? _childrenCount - 1 : 0), icon: Icon(Icons.remove_circle_outline, color: Theme.of(context).colorScheme.error)),
             ],
           ),
         ),
@@ -222,7 +221,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
 
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.employee != null ? 'تم تحديث البيانات' : 'تمت إضافة العامل')),
+        SnackBar(content: Text('saved_successfully'.tr(context))),
       );
     }
   }

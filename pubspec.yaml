@@ -1,4 +1,4 @@
-name: my_slaves
+name: geem
 description: "A new Flutter project."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -44,6 +44,8 @@ dependencies:
   share_plus: ^12.0.2
   url_launcher: ^6.3.2
   crypto: ^3.0.3
+  flutter_localizations:
+    sdk: flutter
 
 
 dev_dependencies:

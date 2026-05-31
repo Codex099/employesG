@@ -8,10 +8,12 @@ import '../models/absence.dart';
 import '../models/user_role.dart';
 import '../widgets/stats_bar.dart';
 import '../widgets/employee_card.dart';
+import '../widgets/notification_banner.dart';
 import 'employee_form_screen.dart';
 import 'absence_screens.dart';
 import 'user_management_screen.dart';
 import 'login_screen.dart';
+import '../utils/translations.dart';
 import 'package:intl/intl.dart' as intl;
 
 class HomeScreen extends StatefulWidget {
@@ -28,8 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Directionality(
-      textDirection: TextDirection.rtl,
+    return NotificationBannerWrapper(
       child: Scaffold(
         key: _scaffoldKey,
         drawer: _buildDrawer(context),
@@ -44,9 +45,8 @@ class _HomeScreenState extends State<HomeScreen> {
         floatingActionButton: Consumer<AuthService>(
           builder: (_, auth, __) => auth.currentRole.canAdd
               ? FloatingActionButton(
-                  onPressed: () => _openForm(context),
-                  backgroundColor: const Color(0xFF2563eb),
-                  child: const Icon(Icons.add, color: Colors.white),
+                onPressed: () => _openForm(context),
+                  child: const Icon(Icons.add),
                 )
               : const SizedBox.shrink(),
         ),
@@ -69,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
             gradient: LinearGradient(
               begin: Alignment.topRight,
               end: Alignment.bottomLeft,
-              colors: [Color(0xFF2563eb), Color(0xFF0ea5e9)],
+              colors: [Color(0xFF0B5F7A), Color(0xFF0891B2)], // kPrimaryDark to kPrimary
             ),
           ),
           child: Row(
@@ -92,9 +92,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'إدارة العمال',
-                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
+                    Text(
+                      'labor_management'.tr(context),
+                      style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900),
                     ),
                     Row(
                       children: [
@@ -107,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          syncService.isOfflineManual ? 'وضع يدوي' : (syncService.isOnline ? 'متصل' : 'غير متصل'),
+                          syncService.isOfflineManual ? 'manual_mode'.tr(context) : (syncService.isOnline ? 'online'.tr(context) : 'offline'.tr(context)),
                           style: const TextStyle(color: Colors.white70, fontSize: 11),
                         ),
                         if (syncService.isSyncing) ...[
@@ -145,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            isOnline ? 'أونلاين' : 'أوفلاين',
+                            isOnline ? 'online'.tr(context) : 'offline'.tr(context),
                             style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -199,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   gradient: LinearGradient(
                     begin: Alignment.topRight,
                     end: Alignment.bottomLeft,
-                    colors: [Color(0xFF1e40af), Color(0xFF3b82f6)],
+                    colors: [Color(0xFF0B5F7A), Color(0xFF0891B2)],
                   ),
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(24),
@@ -208,16 +208,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.dashboard_outlined, color: Colors.white, size: 22),
+                        const Icon(Icons.dashboard_outlined, color: Colors.white, size: 22),
                         const SizedBox(width: 10),
-                        Text('القائمة الرئيسية',
+                        Text('home_menu'.tr(context),
                           style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text('نظام متابعة القوى العاملة',
+                    Text('labor_system'.tr(context),
                       style: TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 12)),
                     const SizedBox(height: 16),
                     // User info chip
@@ -252,7 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (role.canAdd) ...[  
                       _sidebarBtn(
                         icon: Icons.person_add_alt_1_outlined,
-                        label: 'إضافة عاملة جديدة',
+                        label: 'add_employee'.tr(context),
                         onTap: () {
                           Navigator.pop(context);
                           _openForm(context);
@@ -264,7 +264,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     // 📅 قائمة الغيابات — tous
                     _sidebarBtn(
                       icon: Icons.calendar_month_outlined,
-                      label: 'قائمة الغيابات',
+                      label: 'absences_menu'.tr(context),
                       badge: syncService.employees.where((e) => e.absence != null).length,
                       onTap: () {
                         Navigator.pop(context);
@@ -277,7 +277,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     // 🗃️ الأرشيف — tous
                     _sidebarBtn(
                       icon: Icons.archive_outlined,
-                      label: 'الأرشيف',
+                      label: 'archive_menu'.tr(context),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(context, MaterialPageRoute(
@@ -290,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (role.canManageUsers) ...[  
                       _sidebarBtn(
                         icon: Icons.people_alt_outlined,
-                        label: 'إدارة المستخدمين',
+                        label: 'user_management'.tr(context),
                         onTap: () {
                           Navigator.pop(context);
                           Navigator.push(context, MaterialPageRoute(
@@ -307,23 +307,28 @@ class _HomeScreenState extends State<HomeScreen> {
                     // ⚙️ الإعدادات
                     _SidebarExpandable(
                       icon: Icons.settings_outlined,
-                      label: 'الإعدادات',
+                      label: 'settings'.tr(context),
                       children: [
                         _settingsBtn(
                           icon: syncService.isDarkMode ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                          label: syncService.isDarkMode ? 'الوضع النهاري' : 'الوضع الليلي',
+                          label: syncService.isDarkMode ? 'light_mode'.tr(context) : 'dark_mode'.tr(context),
                           trailing: _buildToggle(syncService.isDarkMode),
                           onTap: () => syncService.toggleTheme(),
+                        ),
+                        _settingsBtn(
+                          icon: Icons.language,
+                          label: 'language'.tr(context),
+                          onTap: () { Navigator.pop(context); syncService.toggleLanguage(); },
                         ),
                         if (role.canImportExport) ...[
                           _settingsBtn(
                             icon: Icons.file_download_outlined,
-                            label: 'تصدير البيانات',
+                            label: 'export_data'.tr(context),
                             onTap: () { Navigator.pop(context); syncService.exportData(); },
                           ),
                           _settingsBtn(
                             icon: Icons.file_upload_outlined,
-                            label: 'استيراد البيانات',
+                            label: 'import_data'.tr(context),
                             onTap: () { Navigator.pop(context); syncService.importData(); },
                           ),
                         ],
@@ -336,7 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     // 🚪 تسجيل الخروج
                     _sidebarBtn(
                       icon: Icons.logout_outlined,
-                      label: 'تسجيل الخروج',
+                      label: 'logout'.tr(context),
                       onTap: () async {
                         Navigator.pop(context);
                         await auth.logout();
@@ -386,7 +391,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFea580c),
+                    color: Theme.of(context).colorScheme.secondary,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text('$badge',
@@ -434,7 +439,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       width: 44, height: 24,
       decoration: BoxDecoration(
-        color: isOn ? const Color(0xFF2563eb) : Colors.grey[300],
+        color: isOn ? Theme.of(context).colorScheme.primary : Colors.grey[300],
         borderRadius: BorderRadius.circular(12),
       ),
       child: AnimatedAlign(
@@ -462,7 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
           controller: _searchController,
           onChanged: (v) => setState(() => _searchQuery = v),
           decoration: InputDecoration(
-            hintText: 'ابحث بالاسم أو رقم التسجيل...',
+            hintText: 'search_hint'.tr(context),
             prefixIcon: const Icon(Icons.search, color: Colors.grey),
             suffixIcon: _searchQuery.isNotEmpty
                 ? IconButton(
@@ -493,7 +498,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Icon(Icons.person_off_outlined, size: 80, color: Colors.grey.withValues(alpha: 0.3)),
                 const SizedBox(height: 16),
-                const Text('لا يوجد عمال مطابقين', style: TextStyle(color: Colors.grey)),
+                Text('no_match'.tr(context), style: const TextStyle(color: Colors.grey)),
               ],
             ),
           );
@@ -511,6 +516,13 @@ class _HomeScreenState extends State<HomeScreen> {
               onDelete: role.canDelete ? () => _confirmDelete(context, employee) : null,
               onAbsent: role.canMarkAbsence ? () => _showAbsenceDialog(context, employee) : null,
               onTap: () => _showEmployeeDetails(context, employee),
+              onSaveAbsence: role.canMarkAbsence
+                  ? (absence) {
+                      final author = context.read<AuthService>().currentUser?.fullName ?? '';
+                      Provider.of<SyncService>(context, listen: false)
+                          .addAbsence(employee.reg, absence, author: author);
+                    }
+                  : null,
             );
           },
         );
@@ -550,9 +562,7 @@ class _HomeScreenState extends State<HomeScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: Container(
+        return Container(
             decoration: BoxDecoration(
               color: Theme.of(context).scaffoldBackgroundColor,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
@@ -585,16 +595,16 @@ class _HomeScreenState extends State<HomeScreen> {
                         width: 52,
                         height: 52,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2563eb).withOpacity(0.1),
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: Center(
                           child: Text(
                             employee.name.isNotEmpty ? employee.name[0].toUpperCase() : '?',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF2563eb),
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                           ),
                         ),
@@ -615,15 +625,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF2563eb).withOpacity(0.08),
+                                color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
                                 employee.reg,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2563eb),
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                             ),
@@ -649,12 +659,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   const Divider(height: 30),
-                  const Text(
-                    'المعلومات الشخصية',
+                  Text(
+                    'personal_info'.tr(context),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF2563eb),
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -667,19 +677,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       _buildDetailChip(Icons.work_outline, employee.workplace, Colors.blueGrey),
                       _buildDetailChip(Icons.family_restroom_outlined, employee.status, Colors.orange),
                       if (employee.children != null)
-                        _buildDetailChip(Icons.child_care_outlined, 'الأولاد: ${employee.children}', Colors.purple),
+                        _buildDetailChip(Icons.child_care_outlined, 'children_count'.tr(context) + ': ${employee.children}', Colors.purple),
                       if (employee.blood.isNotEmpty)
-                        _buildDetailChip(Icons.bloodtype_outlined, 'فصيلة الدم: ${employee.blood}', Colors.redAccent),
+                        _buildDetailChip(Icons.bloodtype_outlined, 'blood_type'.tr(context) + ': ${employee.blood}', Colors.redAccent),
                     ],
                   ),
                   const SizedBox(height: 20),
                   if (employee.notes.isNotEmpty) ...[
-                    const Text(
-                      'الملاحظات (Observation)',
+                    Text(
+                      'observations'.tr(context),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF2563eb),
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -702,8 +712,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 20),
                   ],
                   if (employee.absence != null) ...[
-                    const Text(
-                      'تفاصيل الغياب الحالي',
+                    Text(
+                      'current_absence'.tr(context),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -722,16 +732,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('نوع الغياب: ${employee.absence!.type}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text('absence_type'.tr(context) + ': ${employee.absence!.type}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           const SizedBox(height: 6),
-                          Text('تاريخ تسجيل الغياب: ${employee.absence!.date}', style: const TextStyle(fontSize: 12)),
+                          Text('absence_date'.tr(context) + ': ${employee.absence!.date}', style: const TextStyle(fontSize: 12)),
                           if (employee.absence!.startDate != null)
-                            Text('تاريخ البدء: ${employee.absence!.startDate}', style: const TextStyle(fontSize: 12)),
+                            Text('start_date'.tr(context) + ': ${employee.absence!.startDate}', style: const TextStyle(fontSize: 12)),
                           if (employee.absence!.returnDate != null)
-                            Text('تاريخ الالتحاق: ${employee.absence!.returnDate}', style: const TextStyle(fontSize: 12)),
+                            Text('return_date'.tr(context) + ': ${employee.absence!.returnDate}', style: const TextStyle(fontSize: 12)),
                           if (employee.absence!.reason != null && employee.absence!.reason!.isNotEmpty) ...[
                             const SizedBox(height: 8),
-                            Text('ملاحظة الغياب: ${employee.absence!.reason}', style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
+                            Text('observations'.tr(context) + ': ${employee.absence!.reason}', style: const TextStyle(fontSize: 12, color: Colors.blueGrey)),
                           ],
                         ],
                       ),
@@ -749,7 +759,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             }
                           },
                           icon: const Icon(Icons.call, size: 18),
-                          label: const Text('اتصال مباشر', style: TextStyle(fontWeight: FontWeight.bold)),
+                          label: Text('call_direct'.tr(context), style: const TextStyle(fontWeight: FontWeight.bold)),
                           style: TextButton.styleFrom(
                             backgroundColor: Colors.green,
                             foregroundColor: Colors.white,
@@ -772,7 +782,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             }
                           },
                           icon: const Icon(Icons.message, size: 18),
-                          label: const Text('واتساب', style: TextStyle(fontWeight: FontWeight.bold)),
+                          label: Text('whatsapp'.tr(context), style: const TextStyle(fontWeight: FontWeight.bold)),
                           style: TextButton.styleFrom(
                             backgroundColor: const Color(0xFF25D366),
                             foregroundColor: Colors.white,
@@ -793,7 +803,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           _showAbsenceDialog(context, employee);
                         },
                         icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                        label: const Text('تسجيل غياب الموظف', style: TextStyle(fontWeight: FontWeight.bold)),
+                        label: Text('register_absence_btn'.tr(context), style: const TextStyle(fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange,
                           foregroundColor: Colors.white,
@@ -806,7 +816,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-          ),
         );
       },
     );
@@ -821,27 +830,24 @@ class _HomeScreenState extends State<HomeScreen> {
   void _confirmDelete(BuildContext context, Employee employee) {
     showDialog(
       context: context,
-      builder: (_) => Directionality(
-        textDirection: TextDirection.rtl,
-        child: AlertDialog(
-          title: const Text('تأكيد الحذف'),
-          content: Text('هل أنت متأكد من حذف ${employee.name}؟'),
+      builder: (_) => AlertDialog(
+          title: Text('delete'.tr(context) + ' ?'),
+          content: Text('confirm_delete'.tr(context) + ' ${employee.name}؟'),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+            TextButton(onPressed: () => Navigator.pop(context), child: Text('cancel'.tr(context))),
             TextButton(
               onPressed: () {
                 Provider.of<SyncService>(context, listen: false).deleteEmployee(employee.reg);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('تم حذف العامل بنجاح')),
+                  SnackBar(content: Text('deleted_successfully'.tr(context))),
                 );
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
-              child: const Text('حذف'),
+              child: Text('delete'.tr(context)),
             ),
           ],
         ),
-      ),
     );
   }
 
@@ -860,9 +866,7 @@ class _HomeScreenState extends State<HomeScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
-        return Directionality(
-          textDirection: TextDirection.rtl,
-          child: Container(
+        return Container(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.of(context).size.height * 0.7,
             ),
@@ -905,13 +909,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'سجل غيابات ${employee.name}',
+                              'absence_history'.tr(context) + ' ${employee.name}',
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                             Text(
-                              '${allAbsences.length} غياب مسجل',
+                              '${allAbsences.length} ' + 'absences_count'.tr(context),
                               style: const TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                           ],
@@ -923,10 +927,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Divider(height: 24),
                 // ── List ──
                 if (allAbsences.isEmpty)
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.all(40),
                     child: Center(
-                      child: Text('لا يوجد سجل غيابات', style: TextStyle(color: Colors.grey)),
+                      child: Text('no_absence_history'.tr(context), style: const TextStyle(color: Colors.grey)),
                     ),
                   )
                 else
@@ -969,7 +973,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      ab.type,
+                                      ab.type == 'نقاهة' ? 'sick_leave'.tr(context) :
+                                      ab.type == 'ع ع ش' ? 'unauthorized_absence'.tr(context) :
+                                      ab.type == 'إجازة' ? 'vacation'.tr(context) :
+                                      ab.type == 'رخصة غياب' ? 'absence_permission'.tr(context) : ab.type,
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
@@ -985,8 +992,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         color: Colors.green.withOpacity(0.1),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
-                                      child: const Text(
-                                        'حالي',
+                                      child: Text(
+                                        'current'.tr(context),
                                         style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
                                       ),
                                     ),
@@ -999,7 +1006,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'من ${ab.startDate ?? "--"} → ${ab.returnDate ?? "--"}',
+                                'from'.tr(context) + ' ${ab.startDate ?? "--"} → ${ab.returnDate ?? "--"}',
                                 style: const TextStyle(fontSize: 12, color: Colors.grey),
                               ),
                               if (ab.reason != null && ab.reason!.isNotEmpty) ...[
@@ -1027,8 +1034,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
               ],
             ),
-          ),
-        );
+          );
       },
     );
   }
@@ -1049,9 +1055,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final returnDate = startDate.add(Duration(days: days));
           final formattedReturn = intl.DateFormat('yyyy/MM/dd').format(returnDate);
 
-          return Directionality(
-            textDirection: TextDirection.rtl,
-            child: Padding(
+          return Padding(
               padding: EdgeInsets.only(
                 left: 20, right: 20,
                 bottom: MediaQuery.of(ctx).viewInsets.bottom + 40,
@@ -1070,8 +1074,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'غياب -- ${employee.reg}',
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2563eb)),
+                          'absence_type'.tr(context) + ' -- ${employee.reg}',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
                         ),
                       ),
                       // ── Badge compteur d'absences ──
@@ -1105,7 +1109,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                   const SizedBox(height: 18),
-                  const Text('نوع الغياب', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                  Text('absence_type'.tr(context), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
                   const SizedBox(height: 10),
                   GridView.count(
                     crossAxisCount: 2, shrinkWrap: true,
@@ -1113,23 +1117,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     childAspectRatio: 1.5,
                     physics: const NeverScrollableScrollPhysics(),
                     children: [
-                      {'name': 'نقاهة', 'emoji': '🤒'},
-                      {'name': 'ع ع ش', 'emoji': '⛔'},
-                      {'name': 'إجازة', 'emoji': '🏖️'},
-                      {'name': 'رخصة غياب', 'emoji': '📄'},
+                      {'name': 'sick_leave'.tr(context), 'value': 'نقاهة', 'emoji': '🤒'},
+                      {'name': 'unauthorized_absence'.tr(context), 'value': 'ع ع ش', 'emoji': '⛔'},
+                      {'name': 'vacation'.tr(context), 'value': 'إجازة', 'emoji': '🏖️'},
+                      {'name': 'absence_permission'.tr(context), 'value': 'رخصة غياب', 'emoji': '📄'},
                     ].map((item) {
-                      final type = item['name']!;
+                      final typeLabel = item['name']!;
+                      final typeValue = item['value']!;
                       final emoji = item['emoji']!;
-                      final sel = selectedType == type;
+                      final sel = selectedType == typeValue;
                       return GestureDetector(
-                        onTap: () => setModal(() => selectedType = type),
+                        onTap: () => setModal(() => selectedType = typeValue),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
-                            color: sel ? const Color(0xFFfff7ed) : Theme.of(context).cardColor,
+                            color: sel ? Theme.of(context).colorScheme.primary.withOpacity(0.1) : Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(14),
                             border: Border.all(
-                              color: sel ? const Color(0xFFea580c) : (isDark ? Colors.white24 : Colors.grey[300]!),
+                              color: sel ? Theme.of(context).colorScheme.primary : (isDark ? Colors.white24 : Colors.grey[300]!),
                               width: sel ? 2 : 1,
                             ),
                           ),
@@ -1138,9 +1143,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Text(emoji, style: const TextStyle(fontSize: 24)),
                               const SizedBox(height: 6),
-                              Text(type, style: TextStyle(
+                              Text(typeLabel, style: TextStyle(
                                 fontWeight: FontWeight.w700,
-                                color: sel ? const Color(0xFFea580c) : null,
+                                color: sel ? Theme.of(context).colorScheme.primary : null,
                               )),
                             ],
                           ),
@@ -1156,7 +1161,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('عدد الأيام', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                              Text('days_count'.tr(context), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
                               const SizedBox(height: 8),
                               Container(
                                 decoration: BoxDecoration(
@@ -1179,7 +1184,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('تاريخ البدء', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                              Text('start_date_absence'.tr(context), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
                               const SizedBox(height: 8),
                               GestureDetector(
                                 onTap: () async {
@@ -1209,7 +1214,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           const Icon(Icons.info_outline, color: Colors.green, size: 16),
                           const SizedBox(width: 8),
-                          Text('تاريخ الالتحاق: $formattedReturn',
+                          Text('return_date'.tr(context) + ': $formattedReturn',
                             style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
                         ],
                       ),
@@ -1219,11 +1224,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
-                      child: const Row(
+                      child: Row(
                         children: [
                           Icon(Icons.warning_amber_outlined, color: Colors.red, size: 16),
                           SizedBox(width: 8),
-                          Text('غياب بدون إذن — سيسجل فوراً', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text('unauthorized_warning'.tr(context), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
                         ],
                       ),
                     ),
@@ -1233,12 +1238,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     controller: reasonController,
                     maxLines: 2,
                     decoration: InputDecoration(
-                      hintText: 'السبب أو ملاحظة (اختياري)...',
+                      hintText: 'reason_hint'.tr(context),
                       hintStyle: const TextStyle(color: Colors.grey),
                       prefixIcon: const Icon(Icons.note_outlined, color: Colors.grey),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey[300]!)),
                       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Colors.grey[300]!)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF2563eb))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
                   ),
@@ -1255,23 +1260,24 @@ class _HomeScreenState extends State<HomeScreen> {
                           returnDate: selectedType == 'ع ع ش' ? null : formattedReturn,
                           reason: reasonController.text.trim().isEmpty ? null : reasonController.text.trim(),
                         );
-                        Provider.of<SyncService>(context, listen: false).addAbsence(employee.reg, absence);
+                        final author = context.read<AuthService>().currentUser?.fullName ?? '';
+                        Provider.of<SyncService>(context, listen: false)
+                            .addAbsence(employee.reg, absence, author: author);
                         Navigator.pop(ctx);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563eb),
+                        backgroundColor: Theme.of(context).colorScheme.primary,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                       ),
-                      child: const Text('✔ تسجيل الغياب', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      child: Text('✔ ' + 'submit_absence'.tr(context), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     ),
                   ),
                 ],
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        ),
     );
   }
 }
