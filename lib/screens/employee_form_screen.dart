@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/instance_manager.dart';
 import '../models/employee.dart';
 import '../services/sync_service.dart';
 import '../utils/translations.dart';
@@ -210,9 +210,10 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
         children: _childrenCount,
         notes: _notesController.text,
         created: widget.employee?.created ?? DateTime.now().millisecondsSinceEpoch,
+        updatedAt: DateTime.now().toIso8601String(),
       );
 
-      final syncService = Provider.of<SyncService>(context, listen: false);
+      final syncService = Get.find<SyncService>();
       if (widget.employee != null) {
         syncService.updateEmployee(employee);
       } else {

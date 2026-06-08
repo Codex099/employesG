@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/state_manager.dart';
 import '../services/sync_service.dart';
 import '../main.dart';
 import '../utils/translations.dart';
@@ -9,8 +9,8 @@ class StatsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<SyncService>(
-      builder: (context, syncService, child) {
+    return GetBuilder<SyncService>(
+      builder: (syncService) {
         final employees = syncService.employees;
         final total = employees.length;
         final married = employees.where((e) => e.status == 'متزوج').length;

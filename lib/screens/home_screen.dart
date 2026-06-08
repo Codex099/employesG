@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:get/instance_manager.dart';
+import 'package:get/state_manager.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/sync_service.dart';
 import '../services/auth_service.dart';
@@ -55,8 +57,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Consumer<SyncService>(
-      builder: (context, syncService, _) {
+    return GetBuilder<SyncService>(
+      builder: (syncService) {
         final isOnline = syncService.isOnline && !syncService.isOfflineManual;
         return Container(
           padding: EdgeInsets.only(
@@ -110,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           syncService.isOfflineManual ? 'manual_mode'.tr(context) : (syncService.isOnline ? 'online'.tr(context) : 'offline'.tr(context)),
                           style: const TextStyle(color: Colors.white70, fontSize: 11),
                         ),
-                        if (syncService.isSyncing) ...[
+                        if (syncService.isSyncing.value) ...[
                           const SizedBox(width: 8),
                           const SizedBox(width: 10, height: 10,
                             child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
@@ -163,14 +165,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                   ),
                   const SizedBox(width: 4),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, color: Colors.white, size: 20),
-                    onPressed: (syncService.isSyncing || syncService.isOfflineManual) 
-                        ? null 
-                        : () => syncService.fetchFromSheets(),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                  ),
+                  Obx(() {
+                    final syncing = syncService.isSyncing.value && !syncService.isOfflineManual;
+                    return IconButton(
+                      icon: syncing
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.refresh, color: Colors.white, size: 20),
+                      onPressed: (syncing || syncService.isOfflineManual)
+                          ? null
+                          : () => syncService.fetchFromSheets(),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    );
+                  }),
                 ],
               ),
             ],
@@ -181,8 +193,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildDrawer(BuildContext context) {
-    return Consumer2<SyncService, AuthService>(
-      builder: (context, syncService, auth, _) {
+    return Consumer<AuthService>(
+      builder: (context, auth, _) {
+        final syncService = Get.find<SyncService>();
         final role = auth.currentRole;
         final user = auth.currentUser;
         return Drawer(
@@ -484,8 +497,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildEmployeeList() {
-    return Consumer<SyncService>(
-      builder: (context, syncService, _) {
+    return GetBuilder<SyncService>(
+      builder: (syncService) {
         final filtered = syncService.employees.where((e) {
           final q = _searchQuery.toLowerCase();
           return e.name.toLowerCase().contains(q) || e.reg.contains(q);
@@ -519,8 +532,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onSaveAbsence: role.canMarkAbsence
                   ? (absence) {
                       final author = context.read<AuthService>().currentUser?.fullName ?? '';
-                      Provider.of<SyncService>(context, listen: false)
-                          .addAbsence(employee.reg, absence, author: author);
+                      Get.find<SyncService>().addAbsence(employee.reg, absence, author: author);
                     }
                   : null,
             );
@@ -837,7 +849,7 @@ class _HomeScreenState extends State<HomeScreen> {
             TextButton(onPressed: () => Navigator.pop(context), child: Text('cancel'.tr(context))),
             TextButton(
               onPressed: () {
-                Provider.of<SyncService>(context, listen: false).deleteEmployee(employee.reg);
+                Get.find<SyncService>().deleteEmployee(employee.reg);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('deleted_successfully'.tr(context))),
@@ -974,7 +986,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                     child: Text(
                                       ab.type == 'نقاهة' ? 'sick_leave'.tr(context) :
-                                      ab.type == 'ع ع ش' ? 'unauthorized_absence'.tr(context) :
+                                      ab.type == 'غ غ ش' ? 'unauthorized_absence'.tr(context) :
                                       ab.type == 'إجازة' ? 'vacation'.tr(context) :
                                       ab.type == 'رخصة غياب' ? 'absence_permission'.tr(context) : ab.type,
                                       style: TextStyle(
@@ -1040,7 +1052,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showAbsenceDialog(BuildContext context, Employee employee) {
-    String selectedType = 'ع ع ش';
+    String selectedType = 'غ غ ش';
     int days = 1;
     DateTime startDate = DateTime.now();
     final reasonController = TextEditingController();
@@ -1118,7 +1130,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     physics: const NeverScrollableScrollPhysics(),
                     children: [
                       {'name': 'sick_leave'.tr(context), 'value': 'نقاهة', 'emoji': '🤒'},
-                      {'name': 'unauthorized_absence'.tr(context), 'value': 'ع ع ش', 'emoji': '⛔'},
+                      {'name': 'unauthorized_absence'.tr(context), 'value': 'غ غ ش', 'emoji': '⛔'},
                       {'name': 'vacation'.tr(context), 'value': 'إجازة', 'emoji': '🏖️'},
                       {'name': 'absence_permission'.tr(context), 'value': 'رخصة غياب', 'emoji': '📄'},
                     ].map((item) {
@@ -1153,86 +1165,112 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     }).toList(),
                   ),
-                  if (selectedType != 'ع ع ش') ...[
-                    const SizedBox(height: 18),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('days_count'.tr(context), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
-                              const SizedBox(height: 8),
-                              Container(
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('days_count'.tr(context), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                            const SizedBox(height: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey[300]!),
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              child: Row(
+                                children: [
+                                  IconButton(icon: const Icon(Icons.remove), onPressed: () => setModal(() => days = days > 1 ? days - 1 : 1)),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () async {
+                                        final ctrl = TextEditingController(text: days.toString());
+                                        final val = await showDialog<int>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: Text('days_count'.tr(context)),
+                                            content: TextField(
+                                              controller: ctrl,
+                                              keyboardType: TextInputType.number,
+                                              autofocus: true,
+                                            ),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.pop(ctx), child: Text('cancel'.tr(context))),
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(ctx, int.tryParse(ctrl.text)),
+                                                child: Text('save'.tr(context))
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (val != null && val > 0) {
+                                          setModal(() => days = val);
+                                        }
+                                      },
+                                      child: Container(
+                                        color: Colors.transparent,
+                                        alignment: Alignment.center,
+                                        child: Text(
+                                          '$days',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                            decoration: TextDecoration.underline,
+                                            decorationStyle: TextDecorationStyle.dashed,
+                                          )
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(icon: const Icon(Icons.add), onPressed: () => setModal(() => days++)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('start_date_absence'.tr(context), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
+                            const SizedBox(height: 8),
+                            GestureDetector(
+                              onTap: () async {
+                                final picked = await showDatePicker(context: ctx, initialDate: startDate, firstDate: DateTime(2000), lastDate: DateTime(2100));
+                                if (picked != null) setModal(() => startDate = picked);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
                                 decoration: BoxDecoration(
                                   border: Border.all(color: Colors.grey[300]!),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
-                                child: Row(
-                                  children: [
-                                    IconButton(icon: const Icon(Icons.remove), onPressed: () => setModal(() => days = days > 1 ? days - 1 : 1)),
-                                    Expanded(child: Text('$days', textAlign: TextAlign.center, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                                    IconButton(icon: const Icon(Icons.add), onPressed: () => setModal(() => days++)),
-                                  ],
-                                ),
+                                child: Text(intl.DateFormat('yyyy/MM/dd').format(startDate),
+                                  style: const TextStyle(fontWeight: FontWeight.bold)),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('start_date_absence'.tr(context), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 12)),
-                              const SizedBox(height: 8),
-                              GestureDetector(
-                                onTap: () async {
-                                  final picked = await showDatePicker(context: ctx, initialDate: startDate, firstDate: DateTime(2000), lastDate: DateTime(2100));
-                                  if (picked != null) setModal(() => startDate = picked);
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(color: Colors.grey[300]!),
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                  child: Text(intl.DateFormat('yyyy/MM/dd').format(startDate),
-                                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.green, size: 16),
+                        const SizedBox(width: 8),
+                        Text('return_date'.tr(context) + ': $formattedReturn',
+                          style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.info_outline, color: Colors.green, size: 16),
-                          const SizedBox(width: 8),
-                          Text('return_date'.tr(context) + ': $formattedReturn',
-                            style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                  ] else ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
-                      child: Row(
-                        children: [
-                          Icon(Icons.warning_amber_outlined, color: Colors.red, size: 16),
-                          SizedBox(width: 8),
-                          Text('unauthorized_warning'.tr(context), style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: reasonController,
@@ -1252,16 +1290,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     width: double.infinity, height: 50,
                     child: ElevatedButton(
                       onPressed: () {
+                        final nowMs = DateTime.now().millisecondsSinceEpoch.toString();
                         final absence = Absence(
-                          type: selectedType,
-                          date: intl.DateFormat('yyyy/MM/dd').format(DateTime.now()),
-                          startDate: selectedType == 'ع ع ش' ? null : intl.DateFormat('yyyy/MM/dd').format(startDate),
-                          days: selectedType == 'ع ع ش' ? null : days,
-                          returnDate: selectedType == 'ع ع ش' ? null : formattedReturn,
-                          reason: reasonController.text.trim().isEmpty ? null : reasonController.text.trim(),
+                          id: nowMs,
+                          employeeId: employee.reg,
+                          typeString: selectedType,
+                          updatedAt: intl.DateFormat('yyyy/MM/dd').format(DateTime.now()),
+                          startDate: intl.DateFormat('yyyy/MM/dd').format(startDate),
+                          endDate: formattedReturn,
+                          days: days,
+                          returnDate: formattedReturn,
+                          note: reasonController.text.trim().isEmpty ? null : reasonController.text.trim(),
                         );
                         final author = context.read<AuthService>().currentUser?.fullName ?? '';
-                        Provider.of<SyncService>(context, listen: false)
+                        Get.find<SyncService>()
                             .addAbsence(employee.reg, absence, author: author);
                         Navigator.pop(ctx);
                       },

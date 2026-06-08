@@ -1,20 +1,54 @@
 import 'dart:convert';
+import 'package:hive/hive.dart';
 import 'absence.dart';
 
+part 'employee.g.dart';
 
-class Employee {
-  final String name;       // nom complet
-  final String reg;        // matricule (identifiant unique)
-  final String phone;      // téléphone
-  final String address;    // adresse
-  final String status;     // situation : متزوج | أعزب | مطلق | أرمل | ""
-  final String blood;      // groupe sanguin : A+ A- B+ B- O+ O- AB+ AB- | ""
-  final String workplace;  // lieu de travail
-  final int? children;     // nombre d'enfants (nullable)
-  final String notes;      // notes libres
-  final int created;       // timestamp ms
-  final Absence? absence;  // Absence actuelle
-  final List<Absence> archivedAbsences; // Historique des absences archivées
+@HiveType(typeId: 3)
+class Employee extends HiveObject {
+  @HiveField(0)
+  final String name;       
+  @HiveField(1)
+  final String reg;        
+  @HiveField(2)
+  final String phone;      
+  @HiveField(3)
+  final String address;    
+  @HiveField(4)
+  final String status;     
+  @HiveField(5)
+  final String blood;      
+  @HiveField(6)
+  final String workplace;  
+  @HiveField(7)
+  final int? children;     
+  @HiveField(8)
+  final String notes;      
+  @HiveField(9)
+  final int created;       
+  
+  // NOTE: In the new architecture, absences are managed in a separate box and sheet.
+  // We keep this nullable property if we want to attach an absence locally at runtime,
+  // but it's typically ignored for raw serialization.
+  @HiveField(10)
+  Absence? absence; 
+
+  @HiveField(11)
+  final String? deletedAt;
+
+  @HiveField(12)
+  final int version;
+
+  @HiveField(13)
+  final String updatedAt;
+
+  // We keep archivedAbsences for backward UI compat but its source of truth is now the absences box
+  @HiveField(14)
+  List<Absence> archivedAbsences = [];
+
+  // Used to mark if this employee is pending a deletion in offline mode
+  @HiveField(15)
+  bool pendingDelete = false;
 
   Employee({
     required this.name,
@@ -28,10 +62,13 @@ class Employee {
     required this.notes,
     required this.created,
     this.absence,
+    this.deletedAt,
+    this.version = 1,
+    required this.updatedAt,
     this.archivedAbsences = const [],
+    this.pendingDelete = false,
   });
 
-  // Sentinel used so copyWith(absence: null) correctly clears the absence
   static const Object _notSet = Object();
 
   Employee copyWith({
@@ -45,8 +82,12 @@ class Employee {
     int? children,
     String? notes,
     int? created,
-    Object? absence = _notSet, // accepts Absence or explicit null
+    Object? absence = _notSet,
+    Object? deletedAt = _notSet,
+    int? version,
+    String? updatedAt,
     List<Absence>? archivedAbsences,
+    bool? pendingDelete,
   }) {
     return Employee(
       name: name ?? this.name,
@@ -60,7 +101,11 @@ class Employee {
       notes: notes ?? this.notes,
       created: created ?? this.created,
       absence: identical(absence, _notSet) ? this.absence : absence as Absence?,
+      deletedAt: identical(deletedAt, _notSet) ? this.deletedAt : deletedAt as String?,
+      version: version ?? this.version,
+      updatedAt: updatedAt ?? this.updatedAt,
       archivedAbsences: archivedAbsences ?? this.archivedAbsences,
+      pendingDelete: pendingDelete ?? this.pendingDelete,
     );
   }
 
@@ -73,16 +118,16 @@ class Employee {
       'status': status,
       'blood': blood,
       'workplace': workplace,
-      'children': children,
+      'children': children ?? '',
       'notes': notes,
       'created': created,
-      'absence': absence != null ? jsonEncode(absence!.toMap()) : '',
-      'archivedAbsences': jsonEncode(archivedAbsences.map((x) => x.toMap()).toList()),
+      'deletedAt': deletedAt ?? '',
+      'version': version,
+      'updatedAt': updatedAt,
     };
   }
 
   factory Employee.fromMap(Map<String, dynamic> map) {
-    // Helper to ensure values are strings (Google Sheets often returns numbers for phone/reg)
     String asString(dynamic val) => val?.toString() ?? '';
 
     return Employee(
@@ -93,32 +138,12 @@ class Employee {
       status: asString(map['status']),
       blood: asString(map['blood']),
       workplace: asString(map['workplace']),
-      children: map['children'] != null ? int.tryParse(map['children'].toString()) : null,
+      children: int.tryParse(map['children']?.toString() ?? ''),
       notes: asString(map['notes']),
-      created: map['created'] is int ? map['created'] : (int.tryParse(map['created'].toString()) ?? DateTime.now().millisecondsSinceEpoch),
-      absence: () {
-        final abs = map['absence'];
-        if (abs == null || abs == '') return null;
-        if (abs is String) {
-          try { return Absence.fromMap(jsonDecode(abs)); } catch(_) { return null; }
-        }
-        if (abs is Map<String, dynamic>) return Absence.fromMap(abs);
-        return null;
-      }(),
-      archivedAbsences: () {
-        final arch = map['archivedAbsences'];
-        if (arch == null || arch == '') return const <Absence>[];
-        if (arch is String) {
-          try {
-            final List<dynamic> decoded = jsonDecode(arch);
-            return decoded.map((x) => Absence.fromMap(x)).toList();
-          } catch(_) { return const <Absence>[]; }
-        }
-        if (arch is List) {
-          return arch.map((x) => Absence.fromMap(x)).toList();
-        }
-        return const <Absence>[];
-      }(),
+      created: int.tryParse(map['created']?.toString() ?? '') ?? DateTime.now().millisecondsSinceEpoch,
+      deletedAt: map['deletedAt']?.toString() == '' ? null : map['deletedAt']?.toString(),
+      version: int.tryParse(map['version']?.toString() ?? '1') ?? 1,
+      updatedAt: asString(map['updatedAt']).isEmpty ? DateTime.now().toIso8601String() : asString(map['updatedAt']),
     );
   }
 
@@ -129,9 +154,7 @@ class Employee {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-  
-    return other is Employee &&
-      other.reg == reg;
+    return other is Employee && other.reg == reg;
   }
 
   @override

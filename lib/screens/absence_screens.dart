@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
+import 'package:get/instance_manager.dart';
+import 'package:get/state_manager.dart';
 import '../services/sync_service.dart';
 import '../models/employee.dart';
 import '../models/absence.dart';
@@ -49,7 +51,7 @@ void _showEmployeeDetails(BuildContext context, Employee employee) {
   Color _typeColor(String type) {
     switch (type) {
       case 'نقاهة':       return Colors.blue;
-      case 'ع ع ش':      return Colors.red;
+      case 'غ غ ش':      return Colors.red;
       case 'إجازة':       return Colors.green;
       case 'رخصة غياب':  return Colors.purple;
       default:            return Colors.orange;
@@ -59,7 +61,7 @@ void _showEmployeeDetails(BuildContext context, Employee employee) {
   Icon _typeIcon(String type) {
     switch (type) {
       case 'نقاهة':       return const Icon(Icons.sick_outlined,        size: 14, color: Colors.blue);
-      case 'ع ع ش':      return const Icon(Icons.block_outlined,        size: 14, color: Colors.red);
+      case 'غ غ ش':      return const Icon(Icons.block_outlined,        size: 14, color: Colors.red);
       case 'إجازة':       return const Icon(Icons.beach_access_outlined, size: 14, color: Colors.green);
       case 'رخصة غياب':  return const Icon(Icons.description_outlined,  size: 14, color: Colors.purple);
       default:            return const Icon(Icons.calendar_today_outlined, size: 14, color: Colors.orange);
@@ -408,7 +410,7 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
   }
 
   Future<void> _bulkArchive(BuildContext context, List<Employee> filteredList) async {
-    final syncService = context.read<SyncService>();
+    final syncService = Get.find<SyncService>();
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -443,7 +445,7 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
   }
 
   Future<void> _bulkDelete(BuildContext context) async {
-    final syncService = context.read<SyncService>();
+    final syncService = Get.find<SyncService>();
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -479,8 +481,8 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<SyncService>(
-      builder: (context, syncService, _) {
+    return GetBuilder<SyncService>(
+      builder: (syncService) {
         final role = context.read<AuthService>().currentRole;
         final absentEmployees =
             syncService.employees.where((e) => e.absence != null).toList();
@@ -669,7 +671,7 @@ class _AbsenceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final syncService = context.read<SyncService>();
+    final syncService = Get.find<SyncService>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Card(
@@ -855,8 +857,8 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
           backgroundColor: Colors.blueGrey[700],
           foregroundColor: Colors.white,
         ),
-        body: Consumer<SyncService>(
-          builder: (context, syncService, _) {
+        body: GetBuilder<SyncService>(
+          builder: (syncService) {
             // بناء القائمة الكاملة
             final allArchived = <Map<String, dynamic>>[];
             for (var e in syncService.employees) {

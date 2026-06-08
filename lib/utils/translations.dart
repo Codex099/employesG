@@ -449,7 +449,7 @@ class Translations {
       'fr': 'Maladie'
     },
     'unauthorized_absence': {
-      'ar': 'ع ع ش',
+      'ar': 'غ غ ش',
       'fr': 'A M'
     },
     'vacation': {

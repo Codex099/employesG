@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:get/instance_manager.dart';
+import 'package:get/state_manager.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/app_user.dart';
 import '../models/user_role.dart';
@@ -42,7 +44,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   // ── Show add/edit dialog ──
   void _showUserDialog({AppUser? existing}) {
-    final isDark = context.read<SyncService>().isDarkMode;
+    final isDark = Get.find<SyncService>().isDarkMode;
     final usernameCtrl = TextEditingController(text: existing?.username ?? '');
     final fullNameCtrl = TextEditingController(text: existing?.fullName ?? '');
     final passwordCtrl = TextEditingController();
@@ -228,7 +230,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   void _confirmDelete(AppUser user) {
-    final isDark = context.read<SyncService>().isDarkMode;
+    final isDark = Get.find<SyncService>().isDarkMode;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -283,7 +285,7 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.watch<SyncService>().isDarkMode;
+    final isDark = Get.find<SyncService>().isDarkMode;
     final currentUser = context.watch<AuthService>().currentUser;
 
     return Directionality(
@@ -306,9 +308,18 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
           ),
           actions: [
             IconButton(
-              icon: Icon(Icons.refresh_rounded,
-                  color: isDark ? Colors.white70 : Colors.black54),
-              onPressed: _loadUsers,
+              icon: _loading
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: isDark ? Colors.white70 : const Color(0xFF0f172a),
+                      ),
+                    )
+                  : Icon(Icons.refresh_rounded,
+                      color: isDark ? Colors.white70 : Colors.black54),
+              onPressed: _loading ? null : _loadUsers,
             )
           ],
         ),

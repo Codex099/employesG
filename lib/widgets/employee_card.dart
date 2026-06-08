@@ -178,7 +178,7 @@ class EmployeeCard extends StatelessWidget {
                                   (() {
                                     final t = employee.absence!.type;
                                     final translated = t == 'نقاهة' ? 'sick_leave'.tr(context) :
-                                                       t == 'ع ع ش' ? 'unauthorized_absence'.tr(context) :
+                                                       t == 'غ غ ش' ? 'unauthorized_absence'.tr(context) :
                                                        t == 'إجازة' ? 'vacation'.tr(context) :
                                                        t == 'رخصة غياب' ? 'absence_permission'.tr(context) : t;
                                     return 'absent'.tr(context) + ': $translated';
@@ -283,7 +283,7 @@ class EmployeeCard extends StatelessWidget {
     Color typeColor(String t) {
       switch (t) {
         case 'نقاهة':      return Colors.blue;
-        case 'ع ع ش':     return Colors.red;
+        case 'غ غ ش':     return Colors.red;
         case 'إجازة':      return Colors.green;
         case 'رخصة غياب': return Colors.purple;
         default:           return Colors.orange;
@@ -293,7 +293,7 @@ class EmployeeCard extends StatelessWidget {
     IconData typeIconData(String t) {
       switch (t) {
         case 'نقاهة':      return Icons.sick_outlined;
-        case 'ع ع ش':     return Icons.block_outlined;
+        case 'غ غ ش':     return Icons.block_outlined;
         case 'إجازة':      return Icons.beach_access_outlined;
         case 'رخصة غياب': return Icons.description_outlined;
         default:           return Icons.calendar_today_outlined;
@@ -308,7 +308,7 @@ class EmployeeCard extends StatelessWidget {
       isScrollControlled: true,
       builder: (_) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        String selectedType = 'ع ع ش';
+        String selectedType = 'غ غ ش';
         int days = 1;
         DateTime startDate = DateTime.now();
         final reasonCtrl = TextEditingController();
@@ -440,7 +440,7 @@ class EmployeeCard extends StatelessWidget {
                       physics: const NeverScrollableScrollPhysics(),
                       children: [
                         {'اسم': 'نقاهة',       'emoji': '🤒', 'val': 'نقاهة'},
-                        {'اسم': 'ع ع ش',       'emoji': '⛔', 'val': 'ع ع ش'},
+                        {'اسم': 'غ غ ش',       'emoji': '⛔', 'val': 'غ غ ش'},
                         {'اسم': 'إجازة',       'emoji': '🏖️', 'val': 'إجازة'},
                         {'اسم': 'رخصة غياب',  'emoji': '📄', 'val': 'رخصة غياب'},
                       ].map((item) {
@@ -472,101 +472,124 @@ class EmployeeCard extends StatelessWidget {
                       }).toList(),
                     ),
 
-                    // Days + Start date (hidden for ع ع ش)
-                    if (selectedType != 'ع ع ش') ...[
-                      const SizedBox(height: 14),
-                      Row(children: [
-                        Expanded(child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('عدد الأيام',
-                              style: TextStyle(fontWeight: FontWeight.bold,
-                                color: Colors.grey, fontSize: 12)),
-                            const SizedBox(height: 8),
-                            Container(
+                    const SizedBox(height: 14),
+                    Row(children: [
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('عدد الأيام',
+                            style: TextStyle(fontWeight: FontWeight.bold,
+                              color: Colors.grey, fontSize: 12)),
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove),
+                                onPressed: () => setModal(() => days = days > 1 ? days - 1 : 1),
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () async {
+                                    final ctrl = TextEditingController(text: days.toString());
+                                    final val = await showDialog<int>(
+                                      context: ctx,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text('عدد الأيام'),
+                                        content: TextField(
+                                          controller: ctrl,
+                                          keyboardType: TextInputType.number,
+                                          autofocus: true,
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            child: const Text('إلغاء')
+                                          ),
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context, int.tryParse(ctrl.text)),
+                                            child: const Text('حفظ')
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (val != null && val > 0) {
+                                      setModal(() => days = val);
+                                    }
+                                  },
+                                  child: Container(
+                                    color: Colors.transparent,
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      '$days',
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        decoration: TextDecoration.underline,
+                                        decorationStyle: TextDecorationStyle.dashed,
+                                      )
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add),
+                                onPressed: () => setModal(() => days++),
+                              ),
+                            ]),
+                          ),
+                        ],
+                      )),
+                      const SizedBox(width: 12),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('تاريخ البداية',
+                            style: TextStyle(fontWeight: FontWeight.bold,
+                              color: Colors.grey, fontSize: 12)),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: ctx,
+                                initialDate: startDate,
+                                firstDate: DateTime(2000),
+                                lastDate: DateTime(2100),
+                              );
+                              if (picked != null) setModal(() => startDate = picked);
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),
                                 borderRadius: BorderRadius.circular(14),
                               ),
-                              child: Row(children: [
-                                IconButton(
-                                  icon: const Icon(Icons.remove),
-                                  onPressed: () => setModal(() => days = days > 1 ? days - 1 : 1),
-                                ),
-                                Expanded(child: Text('$days',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-                                IconButton(
-                                  icon: const Icon(Icons.add),
-                                  onPressed: () => setModal(() => days++),
-                                ),
-                              ]),
+                              child: Text(fmt.format(startDate),
+                                style: const TextStyle(fontWeight: FontWeight.bold)),
                             ),
-                          ],
-                        )),
-                        const SizedBox(width: 12),
-                        Expanded(child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('تاريخ البداية',
-                              style: TextStyle(fontWeight: FontWeight.bold,
-                                color: Colors.grey, fontSize: 12)),
-                            const SizedBox(height: 8),
-                            GestureDetector(
-                              onTap: () async {
-                                final picked = await showDatePicker(
-                                  context: ctx,
-                                  initialDate: startDate,
-                                  firstDate: DateTime(2000),
-                                  lastDate: DateTime(2100),
-                                );
-                                if (picked != null) setModal(() => startDate = picked);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                child: Text(fmt.format(startDate),
-                                  style: const TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                          ],
-                        )),
+                          ),
+                        ],
+                      )),
+                    ]),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.info_outline, color: Colors.green, size: 15),
+                        const SizedBox(width: 8),
+                        Text('تاريخ العودة: ${fmt.format(returnDate)}',
+                          style: const TextStyle(color: Colors.green,
+                            fontWeight: FontWeight.bold, fontSize: 12)),
                       ]),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Row(children: [
-                          const Icon(Icons.info_outline, color: Colors.green, size: 15),
-                          const SizedBox(width: 8),
-                          Text('تاريخ العودة: ${fmt.format(returnDate)}',
-                            style: const TextStyle(color: Colors.green,
-                              fontWeight: FontWeight.bold, fontSize: 12)),
-                        ]),
-                      ),
-                    ] else ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Row(children: [
-                          Icon(Icons.warning_amber_outlined, color: Colors.red, size: 15),
-                          SizedBox(width: 8),
-                          Flexible(child: Text('غياب بدون إذن مسبق',
-                            style: TextStyle(color: Colors.red,
-                              fontWeight: FontWeight.bold, fontSize: 12))),
-                        ]),
-                      ),
-                    ],
+                    ),
 
                     // Reason
                     const SizedBox(height: 12),
@@ -601,13 +624,17 @@ class EmployeeCard extends StatelessWidget {
                       width: double.infinity, height: 50,
                       child: ElevatedButton(
                         onPressed: () {
+                          final nowMs = DateTime.now().millisecondsSinceEpoch.toString();
                           final absence = Absence(
-                            type: selectedType,
-                            date: fmt.format(DateTime.now()),
-                            startDate: selectedType == 'ع ع ش' ? null : fmt.format(startDate),
-                            days: selectedType == 'ع ع ش' ? null : days,
-                            returnDate: selectedType == 'ع ع ش' ? null : fmt.format(returnDate),
-                            reason: reasonCtrl.text.trim().isEmpty
+                            id: nowMs,
+                            employeeId: employee.reg,
+                            typeString: selectedType,
+                            updatedAt: fmt.format(DateTime.now()),
+                            startDate: fmt.format(startDate),
+                            endDate: fmt.format(returnDate),
+                            days: days,
+                            returnDate: fmt.format(returnDate),
+                            note: reasonCtrl.text.trim().isEmpty
                               ? null : reasonCtrl.text.trim(),
                           );
                           Navigator.pop(ctx);
