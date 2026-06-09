@@ -63,6 +63,12 @@ class PendingQueueService extends GetxService {
       case 'delete_absence':
         success = await sheets.deleteAbsence(action.entityId);
         break;
+      case 'add_workplace':
+        success = await sheets.addWorkplaceRaw(action.payload!);
+        break;
+      case 'delete_workplace':
+        success = await sheets.deleteWorkplace(action.entityId);
+        break;
     }
     if (!success) {
       throw Exception('Failed action: ${action.action}');

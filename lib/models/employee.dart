@@ -124,11 +124,35 @@ class Employee extends HiveObject {
       'deletedAt': deletedAt ?? '',
       'version': version,
       'updatedAt': updatedAt,
+      'absence': absence != null ? jsonEncode(absence!.toMap()) : '',
+      'archivedAbsences': archivedAbsences.isNotEmpty
+          ? jsonEncode(archivedAbsences.map((e) => e.toMap()).toList())
+          : '[]',
     };
   }
 
   factory Employee.fromMap(Map<String, dynamic> map) {
     String asString(dynamic val) => val?.toString() ?? '';
+
+    Absence? parsedAbsence;
+    if (map['absence'] != null && map['absence'].toString().trim().isNotEmpty) {
+      try {
+        final Map<String, dynamic> absMap = jsonDecode(map['absence'].toString());
+        parsedAbsence = Absence.fromMap(absMap);
+      } catch (e) {
+        // failed to parse absence json
+      }
+    }
+
+    List<Absence> parsedArchived = [];
+    if (map['archivedAbsences'] != null && map['archivedAbsences'].toString().trim().isNotEmpty) {
+      try {
+        final List<dynamic> arcList = jsonDecode(map['archivedAbsences'].toString());
+        parsedArchived = arcList.map((e) => Absence.fromMap(e as Map<String, dynamic>)).toList();
+      } catch (e) {
+        // failed to parse archived
+      }
+    }
 
     return Employee(
       name: asString(map['name']),
@@ -144,6 +168,8 @@ class Employee extends HiveObject {
       deletedAt: map['deletedAt']?.toString() == '' ? null : map['deletedAt']?.toString(),
       version: int.tryParse(map['version']?.toString() ?? '1') ?? 1,
       updatedAt: asString(map['updatedAt']).isEmpty ? DateTime.now().toIso8601String() : asString(map['updatedAt']),
+      absence: parsedAbsence,
+      archivedAbsences: parsedArchived,
     );
   }
 

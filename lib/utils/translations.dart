@@ -117,6 +117,34 @@ class Translations {
       'ar': 'اللغة / Langue',
       'fr': 'Langue / اللغة'
     },
+    'workplaces_menu': {
+      'ar': 'أماكن العمل',
+      'fr': 'Lieux de travail'
+    },
+    'add_workplace': {
+      'ar': 'إضافة مكان عمل',
+      'fr': 'Ajouter un lieu'
+    },
+    'workplace_name_hint': {
+      'ar': 'اسم مكان العمل...',
+      'fr': 'Nom du lieu...'
+    },
+    'empty_workplaces': {
+      'ar': 'لا توجد أماكن عمل مسجلة',
+      'fr': 'Aucun lieu enregistré'
+    },
+    'import_success': {
+      'ar': 'تم استيراد البيانات بنجاح',
+      'fr': 'Données importées avec succès'
+    },
+    'export_success': {
+      'ar': 'تم تصدير البيانات بنجاح',
+      'fr': 'Données exportées avec succès'
+    },
+    'file_error': {
+      'ar': 'خطأ في معالجة الملف',
+      'fr': 'Erreur de traitement du fichier'
+    },
 
     // ── Home Screen ──
     'search_hint': {

@@ -438,7 +438,7 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
       _clearSelection();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('archived_success'.tr(context))),
+          SnackBar(content: Text('archived_success'.tr(context)), backgroundColor: Colors.green),
         );
       }
     }
@@ -473,7 +473,7 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
       _clearSelection();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('deleted_success'.tr(context))),
+          SnackBar(content: Text('deleted_success'.tr(context)), backgroundColor: Colors.green),
         );
       }
     }
@@ -769,7 +769,14 @@ class _AbsenceCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => syncService.archiveAbsence(employee.reg),
+                        onPressed: () async {
+                          try {
+                            await syncService.archiveAbsence(employee.reg);
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('archived_success'.tr(context)), backgroundColor: Colors.green));
+                          } catch (e) {
+                            if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('error_occurred'.tr(context)), backgroundColor: Colors.red));
+                          }
+                        },
                         icon: const Icon(Icons.archive_outlined, size: 18),
                         label: Text('archive_selected'.tr(context)),
                         style: ElevatedButton.styleFrom(
@@ -805,7 +812,12 @@ class _AbsenceCard extends StatelessWidget {
                               ),
                           );
                           if (ok == true && context.mounted) {
-                            syncService.removeAbsence(employee.reg);
+                            try {
+                              await syncService.removeAbsence(employee.reg);
+                              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('deleted_success'.tr(context)), backgroundColor: Colors.green));
+                            } catch (e) {
+                              if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('error_occurred'.tr(context)), backgroundColor: Colors.red));
+                            }
                           }
                         },
                         icon: const Icon(Icons.delete_outline, size: 18),
@@ -1058,9 +1070,14 @@ class _ArchiveScreenState extends State<ArchiveScreen> {
                                               icon: const Icon(
                                                   Icons.delete_outline,
                                                   color: Colors.red),
-                                              onPressed: () =>
-                                                  syncService.deleteFromArchive(
-                                                      e.reg, archIdx),
+                                              onPressed: () async {
+                                                try {
+                                                  await syncService.deleteFromArchive(e.reg, archIdx);
+                                                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('deleted_success'.tr(context)), backgroundColor: Colors.green));
+                                                } catch (err) {
+                                                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('error_occurred'.tr(context)), backgroundColor: Colors.red));
+                                                }
+                                              },
                                             ),
                                         ],
                                       ),

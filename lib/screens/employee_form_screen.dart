@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/instance_manager.dart';
+import 'package:get/state_manager.dart';
 import '../models/employee.dart';
 import '../services/sync_service.dart';
 import '../utils/translations.dart';
@@ -81,7 +82,18 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
                 const SizedBox(height: 16),
                 _buildTextField('address'.tr(context), _addressController, Icons.home, null),
                 const SizedBox(height: 16),
-                _buildTextField('workplace'.tr(context), _workplaceController, Icons.work, null),
+                
+                // Workplace Dropdown
+                GetBuilder<SyncService>(builder: (syncService) {
+                  final workplaces = syncService.workplaces.map((w) => w.name).toList();
+                  final List<String> options = workplaces.toList();
+                  if (_workplaceController.text.isNotEmpty && !options.contains(_workplaceController.text)) {
+                    options.insert(0, _workplaceController.text);
+                  }
+                  return _buildDropdown('workplace'.tr(context), options, _workplaceController.text, (v) {
+                    setState(() => _workplaceController.text = v ?? '');
+                  });
+                }),
                 const SizedBox(height: 16),
                 _buildDropdown('family_status'.tr(context), _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v!)),
                 if (_selectedStatus != 'أعزب' && _selectedStatus.isNotEmpty) ...[
@@ -197,7 +209,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (_formKey.currentState!.validate()) {
       final employee = Employee(
         name: _nameController.text,
@@ -214,16 +226,26 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
       );
 
       final syncService = Get.find<SyncService>();
-      if (widget.employee != null) {
-        syncService.updateEmployee(employee);
-      } else {
-        syncService.addEmployee(employee);
-      }
+      try {
+        if (widget.employee != null) {
+          await syncService.updateEmployee(employee);
+        } else {
+          await syncService.addEmployee(employee);
+        }
 
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('saved_successfully'.tr(context))),
-      );
+        if (context.mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('saved_successfully'.tr(context)), backgroundColor: Colors.green),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('error_occurred'.tr(context)), backgroundColor: Colors.red),
+          );
+        }
+      }
     }
   }
 }

@@ -6,6 +6,7 @@
 
 const EMPLOYEES_SHEET      = 'employees';
 const ABSENCES_SHEET       = 'absences';
+const WORKPLACES_SHEET     = 'workplaces';
 const USERS_SHEET          = 'users';
 const NOTIFICATIONS_SHEET  = 'notifications';
 const CONFIG_SHEET         = 'config';
@@ -33,6 +34,9 @@ function doGet(e) {
   if (action === 'get_absences') {
     return jsonResponse(getAllRecords(ABSENCES_SHEET));
   }
+  if (action === 'get_workplaces') {
+    return jsonResponse(getAllRecords(WORKPLACES_SHEET));
+  }
 
   // Default: return all employees
   return jsonResponse(getAllRecords(EMPLOYEES_SHEET));
@@ -59,6 +63,11 @@ function doPost(e) {
       case 'add_absence':     return jsonResponse(createRecord(ABSENCES_SHEET, payload.data));
       case 'update_absence':  return jsonResponse(updateRecord(ABSENCES_SHEET, payload.id, payload.data, 'id'));
       case 'delete_absence':  return jsonResponse(softDeleteRecord(ABSENCES_SHEET, payload.id, 'id'));
+
+      // ── Workplaces ──
+      case 'add_workplace':    return jsonResponse(createRecord(WORKPLACES_SHEET, payload.data));
+      case 'update_workplace': return jsonResponse(updateRecord(WORKPLACES_SHEET, payload.id, payload.data, 'id'));
+      case 'delete_workplace': return jsonResponse(softDeleteRecord(WORKPLACES_SHEET, payload.id, 'id'));
 
       // ── Users ──
       case 'add_user':        return jsonResponse(addUser(payload.data));
@@ -379,7 +388,9 @@ function getOrCreateUsersSheet() {
 }
 
 function getHeaders(sheet) {
-  return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  const lastCol = sheet.getLastColumn();
+  if (lastCol === 0) return [];
+  return sheet.getRange(1, 1, 1, lastCol).getValues()[0];
 }
 
 function ensureTextColumns(sheet, headers) {

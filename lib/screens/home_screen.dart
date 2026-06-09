@@ -14,6 +14,7 @@ import '../widgets/notification_banner.dart';
 import 'employee_form_screen.dart';
 import 'absence_screens.dart';
 import 'user_management_screen.dart';
+import 'workplaces_screen.dart';
 import 'login_screen.dart';
 import '../utils/translations.dart';
 import 'package:intl/intl.dart' as intl;
@@ -317,6 +318,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     Divider(color: Colors.grey.withValues(alpha: 0.15), thickness: 1),
                     const SizedBox(height: 8),
 
+                    // 🏢 أماكن العمل
+                    _sidebarBtn(
+                      icon: Icons.business_outlined,
+                      label: 'workplaces_menu'.tr(context),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const WorkplacesScreen()));
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Divider(color: Colors.grey.withValues(alpha: 0.15), thickness: 1),
+                    const SizedBox(height: 8),
+
                     // ⚙️ الإعدادات
                     _SidebarExpandable(
                       icon: Icons.settings_outlined,
@@ -530,9 +544,18 @@ class _HomeScreenState extends State<HomeScreen> {
               onAbsent: role.canMarkAbsence ? () => _showAbsenceDialog(context, employee) : null,
               onTap: () => _showEmployeeDetails(context, employee),
               onSaveAbsence: role.canMarkAbsence
-                  ? (absence) {
+                  ? (absence) async {
                       final author = context.read<AuthService>().currentUser?.fullName ?? '';
-                      Get.find<SyncService>().addAbsence(employee.reg, absence, author: author);
+                      try {
+                        await Get.find<SyncService>().addAbsence(employee.reg, absence, author: author);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('saved_successfully'.tr(context)), backgroundColor: Colors.green));
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('error_occurred'.tr(context)), backgroundColor: Colors.red));
+                        }
+                      }
                     }
                   : null,
             );
@@ -848,12 +871,20 @@ class _HomeScreenState extends State<HomeScreen> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: Text('cancel'.tr(context))),
             TextButton(
-              onPressed: () {
-                Get.find<SyncService>().deleteEmployee(employee.reg);
+              onPressed: () async {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('deleted_successfully'.tr(context))),
-                );
+                try {
+                  await Get.find<SyncService>().deleteEmployee(employee.reg);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('deleted_successfully'.tr(context)), backgroundColor: Colors.green),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('error_occurred'.tr(context)), backgroundColor: Colors.red));
+                  }
+                }
               },
               style: TextButton.styleFrom(foregroundColor: Colors.red),
               child: Text('delete'.tr(context)),
@@ -1086,7 +1117,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'absence_type'.tr(context) + ' -- ${employee.reg}',
+                          'absence_type'.tr(context) + ' -- ${employee.name} (${employee.reg})',
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
                         ),
                       ),
@@ -1289,7 +1320,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   SizedBox(
                     width: double.infinity, height: 50,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         final nowMs = DateTime.now().millisecondsSinceEpoch.toString();
                         final absence = Absence(
                           id: nowMs,
@@ -1303,9 +1334,17 @@ class _HomeScreenState extends State<HomeScreen> {
                           note: reasonController.text.trim().isEmpty ? null : reasonController.text.trim(),
                         );
                         final author = context.read<AuthService>().currentUser?.fullName ?? '';
-                        Get.find<SyncService>()
-                            .addAbsence(employee.reg, absence, author: author);
                         Navigator.pop(ctx);
+                        try {
+                          await Get.find<SyncService>().addAbsence(employee.reg, absence, author: author);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('saved_successfully'.tr(context)), backgroundColor: Colors.green));
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('error_occurred'.tr(context)), backgroundColor: Colors.red));
+                          }
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,

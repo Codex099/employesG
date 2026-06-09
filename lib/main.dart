@@ -8,6 +8,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'models/employee.dart';
 import 'models/absence.dart';
+import 'models/workplace.dart';
 import 'models/pending_action.dart';
 import 'services/sync_service.dart';
 import 'services/auth_service.dart';
@@ -34,11 +35,41 @@ void main() async {
   Hive.registerAdapter(AbsenceAdapter());
   Hive.registerAdapter(PendingActionAdapter());
   Hive.registerAdapter(EmployeeAdapter());
+  Hive.registerAdapter(WorkplaceAdapter());
 
   await Hive.openBox('settings');
-  await Hive.openBox<Employee>('employees');
-  await Hive.openBox<Absence>('absences');
-  await Hive.openBox<PendingAction>('pendingQueue');
+  
+  try {
+    final empBox = await Hive.openBox<Employee>('employees');
+    empBox.values.toList(); // Force decode to catch schema errors
+  } catch (e) {
+    await Hive.deleteBoxFromDisk('employees');
+    await Hive.openBox<Employee>('employees');
+  }
+
+  try {
+    final absBox = await Hive.openBox<Absence>('absences');
+    absBox.values.toList();
+  } catch (e) {
+    await Hive.deleteBoxFromDisk('absences');
+    await Hive.openBox<Absence>('absences');
+  }
+
+  try {
+    final wpBox = await Hive.openBox<Workplace>('workplaces');
+    wpBox.values.toList();
+  } catch (e) {
+    await Hive.deleteBoxFromDisk('workplaces');
+    await Hive.openBox<Workplace>('workplaces');
+  }
+
+  try {
+    final qBox = await Hive.openBox<PendingAction>('pendingQueue');
+    qBox.values.toList();
+  } catch (e) {
+    await Hive.deleteBoxFromDisk('pendingQueue');
+    await Hive.openBox<PendingAction>('pendingQueue');
+  }
 
   Get.put(SheetsService());
   Get.put(ConnectivityService());
@@ -78,13 +109,14 @@ class MyApp extends StatelessWidget {
     // This means only the Theme wrapper rebuilds when dark mode changes,
     // NOT the whole GetMaterialApp (which would trigger re-fetches).
     return ValueListenableBuilder(
-      valueListenable: Hive.box('settings').listenable(keys: ['isDarkMode']),
+      valueListenable: Hive.box('settings').listenable(keys: ['isDarkMode', 'language']),
       builder: (context, box, _) {
         final isDark = box.get('isDarkMode', defaultValue: false) as bool;
+        final lang = box.get('language', defaultValue: 'ar') as String;
         return GetMaterialApp(
           onGenerateTitle: (context) => 'app_title'.tr(context),
           debugShowCheckedModeBanner: false,
-          locale: const Locale('ar'),
+          locale: Locale(lang),
           builder: (context, child) {
             return Theme(
               data: isDark ? _darkTheme : _lightTheme(context),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:get/instance_manager.dart';
 import '../services/auth_service.dart';
 import '../services/sync_service.dart';
 import 'home_screen.dart';
@@ -65,7 +66,7 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.watch<SyncService>().isDarkMode;
+    final isDark = Get.find<SyncService>().isDarkMode;
     final auth = context.watch<AuthService>();
 
     return Scaffold(

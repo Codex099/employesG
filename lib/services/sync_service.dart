@@ -1,9 +1,15 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
 import '../models/employee.dart';
 import '../models/absence.dart';
+import '../models/workplace.dart';
 import 'sheets_service.dart';
 import 'connectivity_service.dart';
 import 'pending_queue_service.dart';
@@ -15,6 +21,7 @@ class SyncService extends GetxController {
   final _settingsBox = Hive.box('settings');
   late final Box<Employee> _employeesBox;
   late final Box<Absence> _absencesBox;
+  late final Box<Workplace> _workplacesBox;
 
   final isSyncing = false.obs;
   Timer? _pollTimer;
@@ -24,6 +31,7 @@ class SyncService extends GetxController {
     super.onInit();
     _employeesBox = Hive.box<Employee>('employees');
     _absencesBox = Hive.box<Absence>('absences');
+    _workplacesBox = Hive.box<Workplace>('workplaces');
 
     // Auto sync when online status changes
     ever(Get.find<ConnectivityService>().isOnline, (bool online) {
@@ -58,6 +66,8 @@ class SyncService extends GetxController {
   }
 
   List<Employee> get employees => _employeesBox.values.where((e) => e.deletedAt == null && !e.pendingDelete).toList();
+  List<Workplace> get workplaces => _workplacesBox.values.where((w) => w.deletedAt == null).toList();
+
   List<Absence> get absences => _absencesBox.values.where((a) => a.deletedAt == null).toList();
 
   bool get isDarkMode => _settingsBox.get('isDarkMode', defaultValue: false);
@@ -71,7 +81,8 @@ class SyncService extends GetxController {
   }
 
   void toggleLanguage() {
-    _settingsBox.put('locale', locale == 'ar' ? 'fr' : 'ar');
+    final cur = _settingsBox.get('language', defaultValue: 'ar') as String;
+    _settingsBox.put('language', cur == 'ar' ? 'fr' : 'ar');
     update();
   }
 
@@ -129,6 +140,7 @@ class SyncService extends GetxController {
   Future<void> _silentPull() async {
     await _pullEmployees();
     await _pullAbsences();
+    await _pullWorkplaces();
     await _settingsBox.put('lastSyncTimestamp', DateTime.now().toUtc().toIso8601String());
   }
 
@@ -155,6 +167,19 @@ class SyncService extends GetxController {
           if (_absencesBox.containsKey(a.id)) await _absencesBox.delete(a.id);
         } else {
           await _absencesBox.put(a.id, a);
+        }
+      }
+    }
+  }
+
+  Future<void> _pullWorkplaces() async {
+    final list = await _sheets.fetchWorkplaces();
+    if (list != null) {
+      for (final w in list) {
+        if (w.deletedAt != null) {
+          if (_workplacesBox.containsKey(w.id)) await _workplacesBox.delete(w.id);
+        } else {
+          await _workplacesBox.put(w.id, w);
         }
       }
     }
@@ -223,53 +248,160 @@ class SyncService extends GetxController {
   // --- Absences ---
 
   Future<void> addAbsence(String reg, Absence absence, {String author = ''}) async {
+    // Audit log
     await _absencesBox.put(absence.id, absence);
-    
-    if (!ConnectivityService.isConnected) {
-      await _queue.enqueue(PendingAction(
-        action: 'add_absence',
-        entityType: 'absence',
-        entityId: absence.id,
-        payload: absence.toMap(),
-        timestamp: DateTime.now().toUtc(),
-      ));
-      return;
+    if (ConnectivityService.isConnected) {
+      _sheets.addAbsenceRaw(absence.toMap());
     }
-    
-    await _sheets.addAbsenceRaw(absence.toMap());
-    await fetchFromSheets();
+
+    final emp = _employeesBox.get(reg);
+    if (emp != null) {
+      emp.absence = absence;
+      await updateEmployee(emp);
+    }
   }
 
   Future<void> archiveAbsence(String reg, {String author = ''}) async {
-    // Soft-delete could act as an archive
+    final emp = _employeesBox.get(reg);
+    if (emp != null && emp.absence != null) {
+      final toArchive = emp.absence!;
+      emp.archivedAbsences = List.from(emp.archivedAbsences)..add(toArchive);
+      emp.absence = null;
+      await updateEmployee(emp);
+    }
   }
 
   Future<void> deleteFromArchive(String reg, int index) async {
-    // Provide backwards compatibility signature.
-    // Ideally this maps to removeAbsence if an ID is present.
+    final emp = _employeesBox.get(reg);
+    if (emp != null && index >= 0 && index < emp.archivedAbsences.length) {
+      final list = List<Absence>.from(emp.archivedAbsences);
+      list.removeAt(index);
+      emp.archivedAbsences = list;
+      await updateEmployee(emp);
+    }
   }
 
-  Future<void> exportData() async {}
-  Future<void> importData() async {}
+  Future<void> exportData() async {
+    try {
+      final data = {
+        'employees': _employeesBox.values.map((e) => e.toMap()).toList(),
+        'workplaces': _workplacesBox.values.map((w) => w.toMap()).toList(),
+      };
+      
+      final jsonStr = jsonEncode(data);
+      final dir = await getApplicationDocumentsDirectory();
+      final file = File('${dir.path}/geem_backup.json');
+      await file.writeAsString(jsonStr);
+      
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path)],
+        text: 'Geem Backup',
+      ));
+    } catch (e) {
+      Get.snackbar('Error', 'file_error'.tr, snackPosition: SnackPosition.BOTTOM);
+    }
+  }
 
-  Future<void> removeAbsence(String absenceId, {String author = ''}) async {
+  Future<void> importData() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final file = File(result.files.single.path!);
+        final jsonStr = await file.readAsString();
+        final data = jsonDecode(jsonStr);
+
+        if (data['employees'] != null) {
+          final List emps = data['employees'];
+          for (var eMap in emps) {
+            final emp = Employee.fromMap(eMap);
+            await updateEmployee(emp); // Push to local DB and enqueue for backend
+          }
+        }
+        if (data['workplaces'] != null) {
+          final List wps = data['workplaces'];
+          for (var wMap in wps) {
+            final wp = Workplace.fromMap(wMap);
+            await addWorkplace(wp);
+          }
+        }
+        Get.snackbar('Success', 'import_success'.tr, snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFF4ade80), colorText: const Color(0xFFFFFFFF));
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'file_error'.tr, snackPosition: SnackPosition.BOTTOM, backgroundColor: const Color(0xFFef4444), colorText: const Color(0xFFFFFFFF));
+    }
+  }
+
+  Future<void> removeAbsence(String reg, {String author = ''}) async {
+    final emp = _employeesBox.get(reg);
+    if (emp != null) {
+      emp.absence = null;
+      await updateEmployee(emp);
+    }
+  }
+
+  // --- Workplaces ---
+
+  Future<void> addWorkplace(Workplace wp) async {
+    await _workplacesBox.put(wp.id, wp);
+    update();
+
     if (!ConnectivityService.isConnected) {
       await _queue.enqueue(PendingAction(
-        action: 'delete_absence',
-        entityType: 'absence',
-        entityId: absenceId,
+        action: 'add_workplace',
+        entityType: 'workplace',
+        entityId: wp.id,
+        payload: wp.toMap(),
         timestamp: DateTime.now().toUtc(),
       ));
-      // Mark locally
-      final abs = _absencesBox.get(absenceId);
-      if (abs != null) {
-         await _absencesBox.delete(absenceId);
-      }
       return;
     }
     
-    await _sheets.deleteAbsence(absenceId);
-    await _absencesBox.delete(absenceId);
-    await fetchFromSheets();
+    // Push to backend asynchronously — don't block UI
+    _sheets.addWorkplaceRaw(wp.toMap()).then((success) {
+      if (!success) {
+        // Queue for retry if backend push failed
+        _queue.enqueue(PendingAction(
+          action: 'add_workplace',
+          entityType: 'workplace',
+          entityId: wp.id,
+          payload: wp.toMap(),
+          timestamp: DateTime.now().toUtc(),
+        ));
+      }
+    });
+  }
+
+  Future<void> deleteWorkplace(String id) async {
+    final wp = _workplacesBox.get(id);
+    if (wp != null) {
+      await _workplacesBox.delete(id);
+      update(); // Refresh GetBuilder immediately
+
+      if (!ConnectivityService.isConnected) {
+        await _queue.enqueue(PendingAction(
+          action: 'delete_workplace',
+          entityType: 'workplace',
+          entityId: id,
+          timestamp: DateTime.now().toUtc(),
+        ));
+        return;
+      }
+      
+      // Push to backend asynchronously
+      _sheets.deleteWorkplace(id).then((success) {
+        if (!success) {
+          _queue.enqueue(PendingAction(
+            action: 'delete_workplace',
+            entityType: 'workplace',
+            entityId: id,
+            timestamp: DateTime.now().toUtc(),
+          ));
+        }
+      });
+    }
   }
 }

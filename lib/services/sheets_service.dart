@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io' as dart_io;
 import 'package:http/http.dart' as http;
 import '../models/employee.dart';
 import '../models/absence.dart';
+import '../models/workplace.dart';
 import '../models/app_user.dart';
 import 'package:get/get.dart';
 import 'connectivity_service.dart';
@@ -75,6 +77,33 @@ class SheetsService extends GetxService {
     return _sendAction('delete_absence', payload: {'id': id});
   }
 
+  // ─── Workplaces ─────────────────────────────────────────────────────────────
+
+  Future<List<Workplace>?> fetchWorkplaces() async {
+    try {
+      final response = await http.get(Uri.parse('$scriptUrl?action=get_workplaces'));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((e) => Workplace.fromMap(e)).toList();
+      }
+    } catch (e) {
+      print('Error fetching workplaces: $e');
+    }
+    return null;
+  }
+
+  Future<bool> addWorkplaceRaw(Map<String, dynamic> data) async {
+    return _sendAction('add_workplace', data: data);
+  }
+
+  Future<bool> updateWorkplaceRaw(String id, Map<String, dynamic> data) async {
+    return _sendAction('update_workplace', payload: {'id': id, 'data': data});
+  }
+
+  Future<bool> deleteWorkplace(String id) async {
+    return _sendAction('delete_workplace', payload: {'id': id});
+  }
+
   // ─── Users (feuille "users") ──────────────────────────────────────────────
 
   Future<List<AppUser>?> fetchUsers() async {
@@ -142,21 +171,35 @@ class SheetsService extends GetxService {
   // ─── Generic ──────────────────────────────────────────────────────────────
 
   Future<bool> _sendAction(String action, {dynamic data, Map<String, dynamic>? payload}) async {
+    final ioClient = dart_io.HttpClient();
     try {
       final bodyMap = payload ?? {};
       bodyMap['action'] = action;
       if (data != null) {
         bodyMap['data'] = data;
       }
-      
-      final response = await http.post(
-        Uri.parse(scriptUrl),
-        body: json.encode(bodyMap),
-      );
+      final bodyStr = json.encode(bodyMap);
+      final bodyBytes = utf8.encode(bodyStr);
+
+      // GAS executes doPost() BEFORE issuing a 302 redirect.
+      // Following the redirect returns 405. So we stop at 302 and treat it as success.
+      final request = await ioClient.postUrl(Uri.parse(scriptUrl));
+      request.followRedirects = false;
+      request.headers.set(dart_io.HttpHeaders.contentTypeHeader, 'application/json');
+      request.headers.set(dart_io.HttpHeaders.contentLengthHeader, bodyBytes.length);
+      request.add(bodyBytes);
+
+      final response = await request.close();
+      final responseBody = await response.transform(utf8.decoder).join();
+
+      print('[SheetsService] $action → ${response.statusCode}: ${responseBody.substring(0, responseBody.length.clamp(0, 150))}');
+
       return response.statusCode == 200 || response.statusCode == 302;
     } catch (e) {
-      print('Error sending action $action: $e');
+      print('[SheetsService] Error sending action $action: $e');
       return false;
+    } finally {
+      ioClient.close();
     }
   }
 }
