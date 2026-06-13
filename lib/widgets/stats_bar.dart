@@ -5,7 +5,14 @@ import '../main.dart';
 import '../utils/translations.dart';
 
 class StatsBar extends StatelessWidget {
-  const StatsBar({super.key});
+  final String? selectedStatus;
+  final Function(String? status) onFilterChanged;
+
+  const StatsBar({
+    super.key,
+    this.selectedStatus,
+    required this.onFilterChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -13,9 +20,8 @@ class StatsBar extends StatelessWidget {
       builder: (syncService) {
         final employees = syncService.employees;
         final total = employees.length;
-        final married = employees.where((e) => e.status == 'متزوج').length;
-        final single = employees.where((e) => e.status == 'أعزب').length;
-        final widowed = employees.where((e) => e.status == 'أرمل').length;
+        final absentCount = employees.where((e) => e.absence != null).length;
+        final presentCount = employees.where((e) => e.absence == null).length;
 
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -34,13 +40,29 @@ class StatsBar extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatItem('total_count'.tr(context), total.toString(), Theme.of(context).colorScheme.primary),
+              _buildStatItem(
+                context,
+                'total_count'.tr(context),
+                total.toString(),
+                Theme.of(context).colorScheme.primary,
+                null,
+              ),
               _buildStatDivider(),
-              _buildStatItem('status_married'.tr(context), married.toString(), Theme.of(context).colorScheme.secondary),
+              _buildStatItem(
+                context,
+                'filter_absent'.tr(context),
+                absentCount.toString(),
+                Theme.of(context).colorScheme.error,
+                'absent',
+              ),
               _buildStatDivider(),
-              _buildStatItem('status_single'.tr(context), single.toString(), Theme.of(context).colorScheme.primary.withOpacity(0.7)),
-              _buildStatDivider(),
-              _buildStatItem('status_widowed'.tr(context), widowed.toString(), Theme.of(context).colorScheme.error),
+              _buildStatItem(
+                context,
+                'filter_present'.tr(context),
+                presentCount.toString(),
+                Theme.of(context).colorScheme.secondary,
+                'present',
+              ),
             ],
           ),
         );
@@ -48,28 +70,40 @@ class StatsBar extends StatelessWidget {
     );
   }
 
-  Widget _buildStatItem(String label, String value, Color color) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: color,
-          ),
+  Widget _buildStatItem(BuildContext context, String label, String value, Color color, String? status) {
+    final isSelected = selectedStatus == status;
+    return InkWell(
+      onTap: () => onFilterChanged(isSelected ? null : status),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
         ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: isSelected ? color : color.withOpacity(0.8),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? color : Colors.grey,
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 

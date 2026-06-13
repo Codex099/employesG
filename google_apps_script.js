@@ -9,6 +9,7 @@ const ABSENCES_SHEET       = 'absences';
 const WORKPLACES_SHEET     = 'workplaces';
 const USERS_SHEET          = 'users';
 const NOTIFICATIONS_SHEET  = 'notifications';
+const NOTES_SHEET          = 'public_notes';
 const CONFIG_SHEET         = 'config';
 
 // ══════════════════════════════════════════════════════════════
@@ -36,6 +37,9 @@ function doGet(e) {
   }
   if (action === 'get_workplaces') {
     return jsonResponse(getAllRecords(WORKPLACES_SHEET));
+  }
+  if (action === 'get_notes') {
+    return jsonResponse(getAllRecords(NOTES_SHEET));
   }
 
   // Default: return all employees
@@ -76,6 +80,11 @@ function doPost(e) {
 
       // ── Notifications ──
       case 'add_notification': return jsonResponse(addNotification(payload.data));
+
+      // ── Public Notes ──
+      case 'add_note':        return jsonResponse(createRecord(NOTES_SHEET, payload.data));
+      case 'update_note':     return jsonResponse(updateRecord(NOTES_SHEET, payload.id, payload.data, 'id'));
+      case 'delete_note':     return jsonResponse(softDeleteRecord(NOTES_SHEET, payload.id, 'id'));
 
       default:
         return jsonResponse({ error: 'Unknown action: ' + action });

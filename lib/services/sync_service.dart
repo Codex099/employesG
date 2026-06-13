@@ -10,6 +10,7 @@ import 'package:file_picker/file_picker.dart';
 import '../models/employee.dart';
 import '../models/absence.dart';
 import '../models/workplace.dart';
+import '../models/public_note.dart';
 import 'sheets_service.dart';
 import 'connectivity_service.dart';
 import 'pending_queue_service.dart';
@@ -22,6 +23,7 @@ class SyncService extends GetxController {
   late final Box<Employee> _employeesBox;
   late final Box<Absence> _absencesBox;
   late final Box<Workplace> _workplacesBox;
+  late final Box<PublicNote> _notesBox;
 
   final isSyncing = false.obs;
   Timer? _pollTimer;
@@ -32,6 +34,7 @@ class SyncService extends GetxController {
     _employeesBox = Hive.box<Employee>('employees');
     _absencesBox = Hive.box<Absence>('absences');
     _workplacesBox = Hive.box<Workplace>('workplaces');
+    _notesBox = Hive.box<PublicNote>('public_notes');
 
     // Auto sync when online status changes
     ever(Get.find<ConnectivityService>().isOnline, (bool online) {
@@ -69,6 +72,7 @@ class SyncService extends GetxController {
   List<Workplace> get workplaces => _workplacesBox.values.where((w) => w.deletedAt == null).toList();
 
   List<Absence> get absences => _absencesBox.values.where((a) => a.deletedAt == null).toList();
+  List<PublicNote> get notes => _notesBox.values.where((n) => n.deletedAt == null).toList();
 
   bool get isDarkMode => _settingsBox.get('isDarkMode', defaultValue: false);
   String get locale => _settingsBox.get('locale', defaultValue: 'ar');
@@ -87,10 +91,14 @@ class SyncService extends GetxController {
   }
 
   void toggleOfflineMode() {
+    // Rebuild UI immediately to show manual state change
+    update();
+    
     Get.find<ConnectivityService>().toggleForceOffline().then((_) {
       if (isOnline) {
         _queue.flush();
       }
+      // Rebuild again after connectivity check finishes
       update();
     });
   }
@@ -141,6 +149,7 @@ class SyncService extends GetxController {
     await _pullEmployees();
     await _pullAbsences();
     await _pullWorkplaces();
+    await _pullNotes();
     await _settingsBox.put('lastSyncTimestamp', DateTime.now().toUtc().toIso8601String());
   }
 
@@ -148,12 +157,31 @@ class SyncService extends GetxController {
   Future<void> _pullEmployees() async {
     final list = await _sheets.fetchEmployees();
     if (list != null) {
-      for (final e in list) {
-        if (e.deletedAt != null) {
-          if (_employeesBox.containsKey(e.reg)) await _employeesBox.delete(e.reg);
+      final remoteRegs = list.map((e) => e.reg).toSet();
+      
+      // 1. Clean up local records that are missing from the server
+      final pendingRegs = _queue.actions
+          .where((a) => a.entityType == 'employee')
+          .map((a) => a.entityId)
+          .toSet();
+
+      for (final localReg in _employeesBox.keys.toList()) {
+        if (!remoteRegs.contains(localReg) && !pendingRegs.contains(localReg)) {
+          await _employeesBox.delete(localReg);
+        }
+      }
+
+      // 2. Update/Add from server
+      for (final remote in list) {
+        final local = _employeesBox.get(remote.reg);
+        
+        if (remote.deletedAt != null) {
+          if (local != null) await _employeesBox.delete(remote.reg);
         } else {
-          e.pendingDelete = false; // reset flag
-          await _employeesBox.put(e.reg, e);
+          if (local != null && local.pendingDelete) continue;
+          if (local == null || remote.version >= local.version) {
+             await _employeesBox.put(remote.reg, remote);
+          }
         }
       }
     }
@@ -162,11 +190,26 @@ class SyncService extends GetxController {
   Future<void> _pullAbsences() async {
     final list = await _sheets.fetchAbsences();
     if (list != null) {
-      for (final a in list) {
-        if (a.deletedAt != null) {
-          if (_absencesBox.containsKey(a.id)) await _absencesBox.delete(a.id);
+      final remoteIds = list.map((a) => a.id).toSet();
+      final pendingIds = _queue.actions
+          .where((a) => a.entityType == 'absence')
+          .map((a) => a.entityId)
+          .toSet();
+
+      for (final localId in _absencesBox.keys.toList()) {
+        if (!remoteIds.contains(localId) && !pendingIds.contains(localId)) {
+          await _absencesBox.delete(localId);
+        }
+      }
+
+      for (final remote in list) {
+        final local = _absencesBox.get(remote.id);
+        if (remote.deletedAt != null) {
+          if (local != null) await _absencesBox.delete(remote.id);
         } else {
-          await _absencesBox.put(a.id, a);
+          if (local == null || remote.version >= local.version) {
+            await _absencesBox.put(remote.id, remote);
+          }
         }
       }
     }
@@ -175,11 +218,55 @@ class SyncService extends GetxController {
   Future<void> _pullWorkplaces() async {
     final list = await _sheets.fetchWorkplaces();
     if (list != null) {
-      for (final w in list) {
-        if (w.deletedAt != null) {
-          if (_workplacesBox.containsKey(w.id)) await _workplacesBox.delete(w.id);
+      final remoteIds = list.map((w) => w.id).toSet();
+      final pendingIds = _queue.actions
+          .where((a) => a.entityType == 'workplace')
+          .map((a) => a.entityId)
+          .toSet();
+
+      for (final localId in _workplacesBox.keys.toList()) {
+        if (!remoteIds.contains(localId) && !pendingIds.contains(localId)) {
+          await _workplacesBox.delete(localId);
+        }
+      }
+
+      for (final remote in list) {
+        final local = _workplacesBox.get(remote.id);
+        if (remote.deletedAt != null) {
+          if (local != null) await _workplacesBox.delete(remote.id);
         } else {
-          await _workplacesBox.put(w.id, w);
+          if (local == null || remote.version >= local.version) {
+            await _workplacesBox.put(remote.id, remote);
+          }
+        }
+      }
+    }
+  }
+
+  Future<void> _pullNotes() async {
+    final list = await _sheets.fetchNotes();
+    if (list != null) {
+      final remoteIds = list.map((n) => n['id'].toString()).toSet();
+      final pendingIds = _queue.actions
+          .where((a) => a.entityType == 'public_note')
+          .map((a) => a.entityId)
+          .toSet();
+
+      for (final localId in _notesBox.keys.toList()) {
+        if (!remoteIds.contains(localId) && !pendingIds.contains(localId)) {
+          await _notesBox.delete(localId);
+        }
+      }
+
+      for (final map in list) {
+        final remote = PublicNote.fromMap(map);
+        final local = _notesBox.get(remote.id);
+        if (remote.deletedAt != null) {
+          if (local != null) await _notesBox.delete(remote.id);
+        } else {
+          if (local == null || remote.version >= local.version) {
+            await _notesBox.put(remote.id, remote);
+          }
         }
       }
     }
@@ -189,6 +276,7 @@ class SyncService extends GetxController {
 
   Future<void> addEmployee(Employee emp) async {
     await _employeesBox.put(emp.reg, emp);
+    update();
     
     if (!ConnectivityService.isConnected) {
       await _queue.enqueue(PendingAction(
@@ -201,12 +289,24 @@ class SyncService extends GetxController {
       return;
     }
     
-    await _sheets.addEmployeeRaw(emp.toMap());
-    await fetchFromSheets();
+    _sheets.addEmployeeRaw(emp.toMap()).then((success) {
+      if (!success) {
+        _queue.enqueue(PendingAction(
+          action: 'add_employee',
+          entityType: 'employee',
+          entityId: emp.reg,
+          payload: emp.toMap(),
+          timestamp: DateTime.now().toUtc(),
+        ));
+      } else {
+        fetchFromSheets();
+      }
+    });
   }
 
   Future<void> updateEmployee(Employee emp) async {
     await _employeesBox.put(emp.reg, emp);
+    update();
 
     if (!ConnectivityService.isConnected) {
       await _queue.enqueue(PendingAction(
@@ -219,8 +319,19 @@ class SyncService extends GetxController {
       return;
     }
     
-    await _sheets.updateEmployeeRaw(emp.reg, emp.toMap());
-    await fetchFromSheets();
+    _sheets.updateEmployeeRaw(emp.reg, emp.toMap()).then((success) {
+      if (!success) {
+        _queue.enqueue(PendingAction(
+          action: 'update_employee',
+          entityType: 'employee',
+          entityId: emp.reg,
+          payload: emp.toMap(),
+          timestamp: DateTime.now().toUtc(),
+        ));
+      } else {
+        fetchFromSheets();
+      }
+    });
   }
 
   Future<void> deleteEmployee(String reg) async {
@@ -228,6 +339,7 @@ class SyncService extends GetxController {
     if (emp != null) {
       emp.pendingDelete = true;
       await _employeesBox.put(reg, emp);
+      update();
     }
 
     if (!ConnectivityService.isConnected) {
@@ -240,25 +352,57 @@ class SyncService extends GetxController {
       return;
     }
     
-    await _sheets.deleteEmployee(reg);
-    await _employeesBox.delete(reg);
-    await fetchFromSheets();
+    _sheets.deleteEmployee(reg).then((success) {
+      if (!success) {
+        _queue.enqueue(PendingAction(
+          action: 'delete_employee',
+          entityType: 'employee',
+          entityId: reg,
+          timestamp: DateTime.now().toUtc(),
+        ));
+      } else {
+        _employeesBox.delete(reg);
+        fetchFromSheets();
+      }
+    });
   }
 
   // --- Absences ---
 
   Future<void> addAbsence(String reg, Absence absence, {String author = ''}) async {
-    // Audit log
+    // 1. Update local DB
     await _absencesBox.put(absence.id, absence);
-    if (ConnectivityService.isConnected) {
-      _sheets.addAbsenceRaw(absence.toMap());
-    }
-
+    
     final emp = _employeesBox.get(reg);
     if (emp != null) {
       emp.absence = absence;
-      await updateEmployee(emp);
+      await _employeesBox.put(reg, emp);
+      update();
     }
+
+    // 2. Sync to backend
+    if (!ConnectivityService.isConnected) {
+      await _queue.enqueue(PendingAction(
+        action: 'add_absence',
+        entityType: 'absence',
+        entityId: absence.id,
+        payload: absence.toMap(),
+        timestamp: DateTime.now().toUtc(),
+      ));
+      return;
+    }
+
+    _sheets.addAbsenceRaw(absence.toMap()).then((success) {
+      if (!success) {
+        _queue.enqueue(PendingAction(
+          action: 'add_absence',
+          entityType: 'absence',
+          entityId: absence.id,
+          payload: absence.toMap(),
+          timestamp: DateTime.now().toUtc(),
+        ));
+      }
+    });
   }
 
   Future<void> archiveAbsence(String reg, {String author = ''}) async {
@@ -268,6 +412,7 @@ class SyncService extends GetxController {
       emp.archivedAbsences = List.from(emp.archivedAbsences)..add(toArchive);
       emp.absence = null;
       await updateEmployee(emp);
+      update();
     }
   }
 
@@ -278,6 +423,7 @@ class SyncService extends GetxController {
       list.removeAt(index);
       emp.archivedAbsences = list;
       await updateEmployee(emp);
+      update();
     }
   }
 
@@ -340,6 +486,7 @@ class SyncService extends GetxController {
     if (emp != null) {
       emp.absence = null;
       await updateEmployee(emp);
+      update();
     }
   }
 
@@ -397,6 +544,92 @@ class SyncService extends GetxController {
           _queue.enqueue(PendingAction(
             action: 'delete_workplace',
             entityType: 'workplace',
+            entityId: id,
+            timestamp: DateTime.now().toUtc(),
+          ));
+        }
+      });
+    }
+  }
+  // --- Public Notes ---
+
+  Future<void> addNote(PublicNote note) async {
+    await _notesBox.put(note.id, note);
+    update();
+
+    if (!ConnectivityService.isConnected) {
+      await _queue.enqueue(PendingAction(
+        action: 'add_note',
+        entityType: 'public_note',
+        entityId: note.id,
+        payload: note.toMap(),
+        timestamp: DateTime.now().toUtc(),
+      ));
+      return;
+    }
+
+    _sheets.addNoteRaw(note.toMap()).then((success) {
+      if (!success) {
+        _queue.enqueue(PendingAction(
+          action: 'add_note',
+          entityType: 'public_note',
+          entityId: note.id,
+          payload: note.toMap(),
+          timestamp: DateTime.now().toUtc(),
+        ));
+      }
+    });
+  }
+
+  Future<void> updateNote(PublicNote note) async {
+    await _notesBox.put(note.id, note);
+    update();
+
+    if (!ConnectivityService.isConnected) {
+      await _queue.enqueue(PendingAction(
+        action: 'update_note',
+        entityType: 'public_note',
+        entityId: note.id,
+        payload: note.toMap(),
+        timestamp: DateTime.now().toUtc(),
+      ));
+      return;
+    }
+
+    _sheets.updateNoteRaw(note.id, note.toMap()).then((success) {
+      if (!success) {
+        _queue.enqueue(PendingAction(
+          action: 'update_note',
+          entityType: 'public_note',
+          entityId: note.id,
+          payload: note.toMap(),
+          timestamp: DateTime.now().toUtc(),
+        ));
+      }
+    });
+  }
+
+  Future<void> deleteNote(String id) async {
+    final note = _notesBox.get(id);
+    if (note != null) {
+      await _notesBox.delete(id);
+      update();
+
+      if (!ConnectivityService.isConnected) {
+        await _queue.enqueue(PendingAction(
+          action: 'delete_note',
+          entityType: 'public_note',
+          entityId: id,
+          timestamp: DateTime.now().toUtc(),
+        ));
+        return;
+      }
+
+      _sheets.deleteNote(id).then((success) {
+        if (!success) {
+          _queue.enqueue(PendingAction(
+            action: 'delete_note',
+            entityType: 'public_note',
             entityId: id,
             timestamp: DateTime.now().toUtc(),
           ));

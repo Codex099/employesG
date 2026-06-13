@@ -133,6 +133,14 @@ class Translations {
       'ar': 'لا توجد أماكن عمل مسجلة',
       'fr': 'Aucun lieu enregistré'
     },
+    'all_workplaces': {
+      'ar': 'كل المواقع',
+      'fr': 'Tous les sites'
+    },
+    'no_connection': {
+      'ar': 'لا يوجد اتصال',
+      'fr': 'Pas de connexion'
+    },
     'import_success': {
       'ar': 'تم استيراد البيانات بنجاح',
       'fr': 'Données importées avec succès'
@@ -144,6 +152,30 @@ class Translations {
     'file_error': {
       'ar': 'خطأ في معالجة الملف',
       'fr': 'Erreur de traitement du fichier'
+    },
+    'notes_menu': {
+      'ar': 'الملاحظات العامة',
+      'fr': 'Notes partagées'
+    },
+    'add_note_title': {
+      'ar': 'إضافة ملاحظة',
+      'fr': 'Ajouter une note'
+    },
+    'edit_note_title': {
+      'ar': 'تعديل الملاحظة',
+      'fr': 'Modifier la note'
+    },
+    'note_content_hint': {
+      'ar': 'اكتب ملاحظتك هنا...',
+      'fr': 'Écrivez votre note ici...'
+    },
+    'no_notes': {
+      'ar': 'لا توجد ملاحظات حالياً',
+      'fr': 'Aucune note pour le moment'
+    },
+    'not_author_error': {
+      'ar': 'لا يمكنك تعديل ملاحظة ليست لك',
+      'fr': 'Vous ne pouvez pas modifier une note qui n\'est pas la vôtre'
     },
 
     // ── Home Screen ──
@@ -222,6 +254,14 @@ class Translations {
     'status_widowed': {
       'ar': 'أرمل',
       'fr': 'Veuf(ve)'
+    },
+    'filter_absent': {
+      'ar': 'الغيابات',
+      'fr': 'Absences'
+    },
+    'filter_present': {
+      'ar': 'الحضور',
+      'fr': 'Présents'
     },
 
     // ── Forms (Employee addedit) ──

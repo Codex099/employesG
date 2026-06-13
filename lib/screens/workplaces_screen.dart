@@ -23,6 +23,7 @@ class _WorkplacesScreenState extends State<WorkplacesScreen> {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: val,
         updatedAt: DateTime.now().toIso8601String(),
+        version: 1,
       );
       await syncService.addWorkplace(wp);
       _nameCtrl.clear();

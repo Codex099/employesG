@@ -208,11 +208,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                   }
                 }
                 if (mounted) {
+                  final messenger = ScaffoldMessenger.of(context);
+                  final message = (ok ? 'saved_successfully'.tr(context) + ' ✓' : 'error_occurred'.tr(context));
                   Navigator.of(context).pop(); 
                   _loadUsers();
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                    content: Text(ok ? 'saved_successfully'.tr(context) + ' ✓' : 'error_occurred'.tr(context),
-                        style: GoogleFonts.almarai()),
+                  messenger.showSnackBar(SnackBar(
+                    content: Text(message, style: GoogleFonts.almarai()),
                     backgroundColor:
                         ok ? const Color(0xFF10b981) : const Color(0xFFef4444),
                     behavior: SnackBarBehavior.floating,
@@ -262,11 +263,12 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
               final auth = context.read<AuthService>();
               final ok = await auth.deleteUser(user.username);
               if (mounted) {
+                final messenger = ScaffoldMessenger.of(context);
+                final message = (ok ? 'deleted_successfully'.tr(context) + ' ✓' : 'error_occurred'.tr(context));
                 Navigator.pop(context);
                 _loadUsers();
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(ok ? 'deleted_successfully'.tr(context) + ' ✓' : 'error_occurred'.tr(context),
-                      style: GoogleFonts.almarai()),
+                messenger.showSnackBar(SnackBar(
+                  content: Text(message, style: GoogleFonts.almarai()),
                   backgroundColor: ok
                       ? const Color(0xFF10b981)
                       : const Color(0xFFef4444),

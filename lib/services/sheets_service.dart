@@ -168,6 +168,32 @@ class SheetsService extends GetxService {
     return [];
   }
 
+  // ─── Public Notes ─────────────────────────────────────────────────────────
+
+  Future<List<dynamic>?> fetchNotes() async {
+    try {
+      final response = await http.get(Uri.parse('$scriptUrl?action=get_notes'));
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      print('Error fetching notes: $e');
+    }
+    return null;
+  }
+
+  Future<bool> addNoteRaw(Map<String, dynamic> data) async {
+    return _sendAction('add_note', data: data);
+  }
+
+  Future<bool> updateNoteRaw(String id, Map<String, dynamic> data) async {
+    return _sendAction('update_note', payload: {'id': id, 'data': data});
+  }
+
+  Future<bool> deleteNote(String id) async {
+    return _sendAction('delete_note', payload: {'id': id});
+  }
+
   // ─── Generic ──────────────────────────────────────────────────────────────
 
   Future<bool> _sendAction(String action, {dynamic data, Map<String, dynamic>? payload}) async {
@@ -181,20 +207,38 @@ class SheetsService extends GetxService {
       final bodyStr = json.encode(bodyMap);
       final bodyBytes = utf8.encode(bodyStr);
 
-      // GAS executes doPost() BEFORE issuing a 302 redirect.
-      // Following the redirect returns 405. So we stop at 302 and treat it as success.
+      // 1. Send the POST request
       final request = await ioClient.postUrl(Uri.parse(scriptUrl));
-      request.followRedirects = false;
+      request.followRedirects = false; // We handle manually to be sure
       request.headers.set(dart_io.HttpHeaders.contentTypeHeader, 'application/json');
       request.headers.set(dart_io.HttpHeaders.contentLengthHeader, bodyBytes.length);
       request.add(bodyBytes);
 
-      final response = await request.close();
-      final responseBody = await response.transform(utf8.decoder).join();
+      var response = await request.close();
+      
+      // 2. Handle 302 Redirect (Standard for Google Apps Script POST)
+      if (response.statusCode == 302) {
+        final location = response.headers.value(dart_io.HttpHeaders.locationHeader);
+        if (location != null) {
+          // Google redirects POST to a GET URL to deliver the result.
+          final redirectRequest = await ioClient.getUrl(Uri.parse(location));
+          response = await redirectRequest.close();
+        }
+      }
 
+      final responseBody = await response.transform(utf8.decoder).join();
       print('[SheetsService] $action → ${response.statusCode}: ${responseBody.substring(0, responseBody.length.clamp(0, 150))}');
 
-      return response.statusCode == 200 || response.statusCode == 302;
+      if (response.statusCode == 200) {
+        try {
+          final decoded = json.decode(responseBody);
+          return decoded['success'] == true || decoded['status'] == 'ok';
+        } catch (_) {
+          return true; // Assume success if status is 200 but body is weird
+        }
+      }
+      
+      return false;
     } catch (e) {
       print('[SheetsService] Error sending action $action: $e');
       return false;

@@ -9,6 +9,8 @@ import 'sync_service.dart';
 class PendingQueueService extends GetxService {
   late final Box<PendingAction> _box;
 
+  List<PendingAction> get actions => _box.values.toList();
+
   @override
   void onInit() {
     super.onInit();
@@ -68,6 +70,15 @@ class PendingQueueService extends GetxService {
         break;
       case 'delete_workplace':
         success = await sheets.deleteWorkplace(action.entityId);
+        break;
+      case 'add_note':
+        success = await sheets.addNoteRaw(action.payload!);
+        break;
+      case 'update_note':
+        success = await sheets.updateNoteRaw(action.entityId, action.payload!);
+        break;
+      case 'delete_note':
+        success = await sheets.deleteNote(action.entityId);
         break;
     }
     if (!success) {

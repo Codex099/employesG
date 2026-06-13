@@ -223,6 +223,7 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
         notes: _notesController.text,
         created: widget.employee?.created ?? DateTime.now().millisecondsSinceEpoch,
         updatedAt: DateTime.now().toIso8601String(),
+        version: (widget.employee?.version ?? 0) + 1,
       );
 
       final syncService = Get.find<SyncService>();
@@ -234,15 +235,19 @@ class _EmployeeFormScreenState extends State<EmployeeFormScreen> {
         }
 
         if (context.mounted) {
+          final messenger = ScaffoldMessenger.of(context);
+          final message = 'saved_successfully'.tr(context);
           Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('saved_successfully'.tr(context)), backgroundColor: Colors.green),
+          messenger.showSnackBar(
+            SnackBar(content: Text(message), backgroundColor: Colors.green),
           );
         }
       } catch (e) {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('error_occurred'.tr(context)), backgroundColor: Colors.red),
+          final messenger = ScaffoldMessenger.of(context);
+          final message = 'error_occurred'.tr(context);
+          messenger.showSnackBar(
+            SnackBar(content: Text(message), backgroundColor: Colors.red),
           );
         }
       }

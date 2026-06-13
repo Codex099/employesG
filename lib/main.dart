@@ -10,6 +10,7 @@ import 'models/employee.dart';
 import 'models/absence.dart';
 import 'models/workplace.dart';
 import 'models/pending_action.dart';
+import 'models/public_note.dart';
 import 'services/sync_service.dart';
 import 'services/auth_service.dart';
 import 'services/notification_poll_service.dart';
@@ -36,6 +37,7 @@ void main() async {
   Hive.registerAdapter(PendingActionAdapter());
   Hive.registerAdapter(EmployeeAdapter());
   Hive.registerAdapter(WorkplaceAdapter());
+  Hive.registerAdapter(PublicNoteAdapter());
 
   await Hive.openBox('settings');
   
@@ -69,6 +71,14 @@ void main() async {
   } catch (e) {
     await Hive.deleteBoxFromDisk('pendingQueue');
     await Hive.openBox<PendingAction>('pendingQueue');
+  }
+
+  try {
+    final noteBox = await Hive.openBox<PublicNote>('public_notes');
+    noteBox.values.toList();
+  } catch (e) {
+    await Hive.deleteBoxFromDisk('public_notes');
+    await Hive.openBox<PublicNote>('public_notes');
   }
 
   Get.put(SheetsService());

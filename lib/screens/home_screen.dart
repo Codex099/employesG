@@ -15,6 +15,7 @@ import 'employee_form_screen.dart';
 import 'absence_screens.dart';
 import 'user_management_screen.dart';
 import 'workplaces_screen.dart';
+import 'notes_screen.dart';
 import 'login_screen.dart';
 import '../utils/translations.dart';
 import 'package:intl/intl.dart' as intl;
@@ -28,6 +29,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String _searchQuery = '';
+  String? _statusFilter;
+  String? _workplaceFilter;
   final TextEditingController _searchController = TextEditingController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -40,8 +43,12 @@ class _HomeScreenState extends State<HomeScreen> {
         body: Column(
           children: [
             _buildHeader(context),
-            const StatsBar(),
+            StatsBar(
+              selectedStatus: _statusFilter,
+              onFilterChanged: (status) => setState(() => _statusFilter = status),
+            ),
             _buildSearchBox(),
+            _buildWorkplaceFilter(),
             Expanded(child: _buildEmployeeList()),
           ],
         ),
@@ -142,13 +149,15 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            isOnline ? Icons.wifi : Icons.wifi_off,
+                            isOnline ? Icons.wifi : (syncService.isOfflineManual ? Icons.wifi_off : Icons.wifi_lock),
                             color: Colors.white,
                             size: 14,
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            isOnline ? 'online'.tr(context) : 'offline'.tr(context),
+                            isOnline 
+                              ? 'online'.tr(context) 
+                              : (syncService.isOfflineManual ? 'offline'.tr(context) : 'no_connection'.tr(context)),
                             style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         ],
@@ -318,7 +327,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     Divider(color: Colors.grey.withValues(alpha: 0.15), thickness: 1),
                     const SizedBox(height: 8),
 
-                    // 🏢 أماكن العمل
                     _sidebarBtn(
                       icon: Icons.business_outlined,
                       label: 'workplaces_menu'.tr(context),
@@ -328,6 +336,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       },
                     ),
                     const SizedBox(height: 8),
+
+                    // 📝 الملاحظات — tous
+                    _sidebarBtn(
+                      icon: Icons.note_alt_outlined,
+                      label: 'notes_menu'.tr(context),
+                      badge: syncService.notes.length,
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => NotesScreen()));
+                      },
+                    ),
+                    const SizedBox(height: 8),
+
                     Divider(color: Colors.grey.withValues(alpha: 0.15), thickness: 1),
                     const SizedBox(height: 8),
 
@@ -481,6 +503,65 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildWorkplaceFilter() {
+    return GetBuilder<SyncService>(
+      builder: (syncService) {
+        final workplaces = syncService.workplaces;
+        if (workplaces.isEmpty) return const SizedBox.shrink();
+
+        // Unique normalized names to avoid 'ADM1' and 'adm1' showing as two different chips
+        final List<String> uniqueWorkplaces = workplaces
+            .map((w) => w.name.trim())
+            .where((name) => name.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+        return Container(
+          height: 50,
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: uniqueWorkplaces.length + 1,
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                final isSelected = _workplaceFilter == null;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: FilterChip(
+                    label: Text('all_workplaces'.tr(context)),
+                    selected: isSelected,
+                    onSelected: (val) => setState(() { 
+                      _statusFilter = null; 
+                      _workplaceFilter = null; 
+                    }),
+                    selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                    checkmarkColor: Theme.of(context).colorScheme.primary,
+                  ),
+                );
+              }
+
+              final name = uniqueWorkplaces[index - 1];
+              final isSelected = _workplaceFilter?.toLowerCase().trim() == name.toLowerCase().trim();
+              
+              return Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text(name),
+                  selected: isSelected,
+                  onSelected: (val) => setState(() => _workplaceFilter = isSelected ? null : name),
+                  selectedColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                  checkmarkColor: Theme.of(context).colorScheme.primary,
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildSearchBox() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -515,7 +596,20 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (syncService) {
         final filtered = syncService.employees.where((e) {
           final q = _searchQuery.toLowerCase();
-          return e.name.toLowerCase().contains(q) || e.reg.contains(q);
+          final matchesSearch = e.name.toLowerCase().contains(q) || e.reg.contains(q);
+          
+          bool matchesStatus = true;
+          if (_statusFilter == 'absent') {
+            matchesStatus = e.absence != null;
+          } else if (_statusFilter == 'present') {
+            matchesStatus = e.absence == null;
+          }
+          
+          final matchesWorkplace = _workplaceFilter == null || 
+              e.workplace.trim().replaceAll(' ', '').toLowerCase() == 
+              _workplaceFilter!.trim().replaceAll(' ', '').toLowerCase();
+              
+          return matchesSearch && matchesStatus && matchesWorkplace;
         }).toList();
 
         if (filtered.isEmpty) {
@@ -1332,6 +1426,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           days: days,
                           returnDate: formattedReturn,
                           note: reasonController.text.trim().isEmpty ? null : reasonController.text.trim(),
+                          version: 1,
                         );
                         final author = context.read<AuthService>().currentUser?.fullName ?? '';
                         Navigator.pop(ctx);

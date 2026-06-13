@@ -437,8 +437,10 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
       }
       _clearSelection();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('archived_success'.tr(context)), backgroundColor: Colors.green),
+        final messenger = ScaffoldMessenger.of(context);
+        final message = 'archived_success'.tr(context);
+        messenger.showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.green),
         );
       }
     }
@@ -472,8 +474,10 @@ class _AbsenceListScreenState extends State<AbsenceListScreen> {
       }
       _clearSelection();
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('deleted_success'.tr(context)), backgroundColor: Colors.green),
+        final messenger = ScaffoldMessenger.of(context);
+        final message = 'deleted_success'.tr(context);
+        messenger.showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.green),
         );
       }
     }
