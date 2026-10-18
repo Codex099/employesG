@@ -332,11 +332,11 @@ void _showEmployeeDetails(BuildContext context, Employee employee) {
                                 const SizedBox(height: 8),
                                 Text('absence_date'.tr(ctx) + ': ${ab.date}',
                                   style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                                if (ab.startDate != null || ab.returnDate != null)
+                                if (ab.startDate.isNotEmpty || ab.returnDate != null)
                                   Padding(
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(
-                                      'from'.tr(ctx) + ' ${ab.startDate ?? "--"}  →  ${ab.returnDate ?? "--"}',
+                                      'from'.tr(ctx) + ' ${ab.startDate.isNotEmpty ? ab.startDate : "--"}  →  ${ab.returnDate ?? "--"}',
                                       style: const TextStyle(fontSize: 12, color: Colors.grey)),
                                   ),
                                 if (ab.reason != null && ab.reason!.isNotEmpty) ...[
@@ -736,7 +736,7 @@ class _AbsenceCard extends StatelessWidget {
                   style: const TextStyle(color: Colors.grey, fontSize: 12)),
               const SizedBox(height: 4),
               Text(
-                'start_date'.tr(context) + ': ${ab.startDate ?? "--"}   ·   ' + 'return_date'.tr(context) + ': ${ab.returnDate ?? "--"}',
+                'start_date'.tr(context) + ': ${ab.startDate.isNotEmpty ? ab.startDate : "--"}   ·   ' + 'return_date'.tr(context) + ': ${ab.returnDate ?? "--"}',
                 style: const TextStyle(color: Colors.grey, fontSize: 13),
               ),
               // ── الملاحظة ── (Observation)

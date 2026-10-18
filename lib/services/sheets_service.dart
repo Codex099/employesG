@@ -6,7 +6,6 @@ import '../models/absence.dart';
 import '../models/workplace.dart';
 import '../models/app_user.dart';
 import 'package:get/get.dart';
-import 'connectivity_service.dart';
 
 class SheetsService extends GetxService {
   final String scriptUrl =

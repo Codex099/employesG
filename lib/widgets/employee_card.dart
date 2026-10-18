@@ -48,9 +48,9 @@ class EmployeeCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onLongPress: onAbsent != null ? () {
+          onLongPress: (onAbsent != null || onSaveAbsence != null) ? () {
             HapticFeedback.mediumImpact();
-            onAbsent!();
+            _showAllAbsenceTypes(context);
           } : null,
           onTap: onTap,
           borderRadius: BorderRadius.circular(20),

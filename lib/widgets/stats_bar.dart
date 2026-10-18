@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/state_manager.dart';
 import '../services/sync_service.dart';
-import '../main.dart';
 import '../utils/translations.dart';
 
 class StatsBar extends StatelessWidget {

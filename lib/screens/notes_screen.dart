@@ -172,7 +172,7 @@ class _NoteCard extends StatelessWidget {
 
   void _editNote(BuildContext context, PublicNote note) {
     // Show same dialog but for edit
-    (context.findAncestorWidgetOfExactType<NotesScreen>() as NotesScreen?)?._showNoteDialog(context, note: note);
+    context.findAncestorWidgetOfExactType<NotesScreen>()?._showNoteDialog(context, note: note);
   }
 
   void _confirmDelete(BuildContext context, PublicNote note) {
